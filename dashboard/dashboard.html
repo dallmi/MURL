@@ -6,7 +6,11 @@
 <title>MURL Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser-eh.js"></script>
+<script type="module">
+  import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/+esm';
+  window.duckdb = duckdb;
+  window.dispatchEvent(new Event('duckdb-ready'));
+</script>
 <style>
 :root {
   --primary: #E60000;
@@ -463,11 +467,18 @@ let sortAsc = true;
 // ── Data Loading ──
 
 async function initDuckDB() {
-  const allBundles = duckdb.getJsDelivrBundles();
-  const bundle = await duckdb.selectBundle(allBundles);
-  const worker = await duckdb.createWorker(bundle.mainWorker);
-  const logger = new duckdb.ConsoleLogger();
-  db = new duckdb.AsyncDuckDB(logger, worker);
+  if (!window.duckdb) {
+    await Promise.race([
+      new Promise(r => window.addEventListener('duckdb-ready', r, { once: true })),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DuckDB load timeout')), 15000))
+    ]);
+  }
+  const m = window.duckdb;
+  const allBundles = m.getJsDelivrBundles();
+  const bundle = await m.selectBundle(allBundles);
+  const worker = await m.createWorker(bundle.mainWorker);
+  const logger = new m.ConsoleLogger();
+  db = new m.AsyncDuckDB(logger, worker);
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
   conn = await db.connect();
 }
