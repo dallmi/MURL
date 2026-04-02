@@ -25,10 +25,14 @@ def _get_request_field_value(request_field_values: list[dict], field_id: str, su
     return None
 
 
-def _parse_datetime(value: str | None) -> str | None:
-    """Parse Jira datetime string to ISO format."""
+def _parse_datetime(value) -> str | None:
+    """Parse Jira datetime string or dict to ISO format."""
     if not value:
         return None
+    if isinstance(value, dict):
+        value = value.get("iso8601") or value.get("isoDate") or value.get("friendly") or str(value)
+    if not isinstance(value, str):
+        return str(value)
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d %H:%M:%S")
