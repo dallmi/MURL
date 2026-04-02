@@ -3,7 +3,7 @@ from config.config import FIELD_MAPPING
 
 
 def _parse_date(value) -> str | None:
-    """Parse Jira datetime string to date only (YYYY-MM-DD)."""
+    """Parse Jira datetime string to DD.MM.YYYY HH:MM:SS format."""
     if not value:
         return None
     if isinstance(value, dict):
@@ -12,7 +12,7 @@ def _parse_date(value) -> str | None:
         return str(value)
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return dt.strftime("%Y-%m-%d")
+        return dt.strftime("%d.%m.%Y %H:%M:%S")
     except (ValueError, TypeError):
         return value
 
