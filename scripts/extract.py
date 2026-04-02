@@ -1,5 +1,6 @@
 import time
 import requests
+from tqdm import tqdm
 from config.config import JIRA_BASE_URL, JIRA_TOKEN, JIRA_REQUEST_TYPE_ID, JIRA_PAGE_LIMIT
 
 
@@ -14,8 +15,8 @@ def extract_all(limit: int | None = None) -> list[dict]:
     url = f"{JIRA_BASE_URL}/rest/servicedeskapi/request"
     all_values = []
     start = 0
-    total = None
     retries_max = 3
+    pbar = None
 
     while True:
         params = {
@@ -33,26 +34,25 @@ def extract_all(limit: int | None = None) -> list[dict]:
             except requests.exceptions.RequestException as e:
                 if attempt < retries_max - 1:
                     wait = 2 ** (attempt + 1)
-                    print(f"  Retry {attempt + 1}/{retries_max} after {wait}s: {e}")
+                    tqdm.write(f"  Retry {attempt + 1}/{retries_max} after {wait}s: {e}")
                     time.sleep(wait)
                 else:
                     raise
 
         data = resp.json()
 
-        if total is None:
-            total = data.get("size", 0)
-            print(f"Total records: {total}")
+        if pbar is None:
+            total = limit or data.get("size", 0)
+            pbar = tqdm(total=total, desc="Extracting MURLs", unit="records")
 
         values = data.get("values", [])
         if not values:
             break
 
         all_values.extend(values)
-        fetched = len(all_values)
-        print(f"  Fetched {fetched}/{total}")
+        pbar.update(len(values))
 
-        if limit and fetched >= limit:
+        if limit and len(all_values) >= limit:
             all_values = all_values[:limit]
             break
 
@@ -61,6 +61,9 @@ def extract_all(limit: int | None = None) -> list[dict]:
 
         start += JIRA_PAGE_LIMIT
         time.sleep(0.2)
+
+    if pbar:
+        pbar.close()
 
     print(f"Extraction complete: {len(all_values)} records")
     return all_values
