@@ -1,7 +1,7 @@
 import time
 import requests
 from tqdm import tqdm
-from config.config import JIRA_BASE_URL, JIRA_TOKEN, JIRA_REQUEST_TYPE_ID, JIRA_PAGE_LIMIT
+from config.config import JIRA_BASE_URL, JIRA_TOKEN, JIRA_REQUEST_TYPE_ID, JIRA_PAGE_LIMIT, ESTIMATED_TOTAL
 
 
 def extract_all(limit: int | None = None) -> list[dict]:
@@ -42,7 +42,7 @@ def extract_all(limit: int | None = None) -> list[dict]:
         data = resp.json()
 
         if pbar is None:
-            total = limit or data.get("size", 0)
+            total = limit or ESTIMATED_TOTAL
             pbar = tqdm(total=total, desc="Extracting MURLs", unit="records")
 
         values = data.get("values", [])
