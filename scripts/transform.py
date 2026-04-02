@@ -2,8 +2,8 @@ from datetime import datetime
 from config.config import FIELD_MAPPING
 
 
-def _parse_datetime(value) -> str | None:
-    """Parse Jira datetime string or dict to ISO format."""
+def _parse_date(value) -> str | None:
+    """Parse Jira datetime string to date only (YYYY-MM-DD)."""
     if not value:
         return None
     if isinstance(value, dict):
@@ -12,29 +12,47 @@ def _parse_datetime(value) -> str | None:
         return str(value)
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return dt.strftime("%Y-%m-%d %H:%M:%S")
+        return dt.strftime("%Y-%m-%d")
     except (ValueError, TypeError):
         return value
 
 
 def _extract_value(obj, subfield: str | None = None) -> str | None:
-    """Extract a value from a field, optionally drilling into a subfield."""
+    """Extract a value from a field, optionally drilling into nested subfields.
+
+    Supports dot notation for deep access, e.g. 'currentStatus.status'
+    """
     if obj is None:
         return None
     if isinstance(obj, dict):
         if subfield:
-            return obj.get(subfield)
+            parts = subfield.split(".")
+            current = obj
+            for part in parts:
+                if isinstance(current, dict):
+                    current = current.get(part)
+                else:
+                    return None
+            return str(current) if current is not None else None
         return obj.get("value") or obj.get("name") or str(obj)
     if isinstance(obj, list):
-        parts = []
+        items = []
         for item in obj:
             if isinstance(item, dict):
                 val = item.get("value") or item.get("name") or str(item)
-                parts.append(val)
+                items.append(val)
             else:
-                parts.append(str(item))
-        return ", ".join(parts) if parts else None
+                items.append(str(item))
+        return ", ".join(items) if items else None
     return str(obj)
+
+
+def _extract_numeric_suffix(key: str | None) -> str | None:
+    """Extract numeric part from issue key, e.g. MURL-18273 -> 18273."""
+    if not key:
+        return None
+    parts = key.split("-")
+    return parts[-1] if len(parts) > 1 else key
 
 
 def transform_record(raw: dict) -> dict:
@@ -48,13 +66,15 @@ def transform_record(raw: dict) -> dict:
 
         if source == "key":
             value = raw.get("key")
+            if mapping.get("transform") == "numeric_suffix":
+                value = _extract_numeric_suffix(value)
         elif source == "fields":
             field = mapping["field"]
             raw_value = fields.get(field)
             subfield = mapping.get("subfield")
             value = _extract_value(raw_value, subfield)
-            if mapping.get("type") == "datetime":
-                value = _parse_datetime(raw_value)
+            if mapping.get("type") == "date":
+                value = _parse_date(raw_value)
 
         record[key] = value
 
