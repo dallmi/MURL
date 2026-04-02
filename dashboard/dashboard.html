@@ -6,6 +6,7 @@
 <title>MURL Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script type="module">
   import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/+esm';
   window.duckdb = duckdb;
@@ -26,322 +27,94 @@
   --success: #6F7A1A;
   --warning: #E4A911;
   --danger: #BD000C;
-  --info: #0C7EC6;
-  --bronze: #AF8626;
-  --lagoon: #00759E;
-  --kiwi: #879420;
-  --aubergine: #4B2D58;
-  --sand: #9F8865;
-  --plum: #2E476B;
-  --sage: #469A6C;
-  --blush: #AD3E4A;
-  --lavender: #8489BD;
-  --lake: #0C7EC6;
 }
-
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  background: var(--page-bg);
-  color: var(--dark-gray);
-  line-height: 1.5;
+  background: var(--page-bg); color: var(--dark-gray); line-height: 1.5;
 }
 
+/* Header */
 .header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: var(--white);
-  border-bottom: 2px solid var(--primary);
+  position: sticky; top: 0; z-index: 100;
+  background: var(--white); border-bottom: 2px solid var(--primary);
   padding: 0.75rem 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
 }
-
-.header h1 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--black);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  font-size: 0.8rem;
-  color: var(--medium-gray);
-}
-
-.status-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 4px;
-}
+.header h1 { font-size: 1.25rem; font-weight: 600; color: var(--black); }
+.header-right { display: flex; align-items: center; gap: 1rem; font-size: 0.8rem; color: var(--medium-gray); }
+.date-filters { display: flex; align-items: center; gap: 0.35rem; }
+.date-preset { padding: 0.3rem 0.6rem; font-size: 0.75rem; }
+.date-preset.active { background: var(--primary); color: var(--white); border-color: var(--primary); }
+.date-input { padding: 0.3rem 0.5rem; border: 1px solid var(--light-gray); border-radius: 4px; font-size: 0.75rem; color: var(--dark-gray); width: 120px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
 .status-dot.ok { background: var(--success); }
 .status-dot.loading { background: var(--warning); }
 .status-dot.error { background: var(--danger); }
 
-.tabs {
-  display: flex;
-  gap: 0;
-  background: var(--white);
-  border-bottom: 1px solid var(--lighter-gray);
-  padding: 0 1.5rem;
-}
-
-.tab {
-  padding: 0.6rem 1.25rem;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--medium-gray);
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s;
-}
+/* Tabs */
+.tabs { display: flex; gap: 0; background: var(--white); border-bottom: 1px solid var(--lighter-gray); padding: 0 1.5rem; }
+.tab { padding: 0.6rem 1.25rem; cursor: pointer; font-size: 0.85rem; font-weight: 500; color: var(--medium-gray); border-bottom: 2px solid transparent; transition: all 0.15s; }
 .tab:hover { color: var(--dark-gray); }
-.tab.active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-}
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-.container {
-  max-width: 1800px;
-  margin: 0 auto;
-  padding: 1rem 1.5rem;
-}
-
+/* Layout */
+.container { max-width: 1800px; margin: 0 auto; padding: 1rem 1.5rem; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
 /* KPI Cards */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+.kpi-card { background: var(--white); border-radius: 6px; padding: 0.85rem 1rem; border: 1px solid var(--lighter-gray); transition: box-shadow 0.15s, transform 0.15s; }
+.kpi-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); transform: translateY(-1px); }
+.kpi-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--medium-gray); margin-bottom: 0.25rem; }
+.kpi-value { font-size: 1.5rem; font-weight: 700; color: var(--black); }
+.kpi-sub { font-size: 0.7rem; color: var(--medium-gray); margin-top: 0.15rem; }
 
-.kpi-card {
-  background: var(--white);
-  border-radius: 6px;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--lighter-gray);
-  transition: box-shadow 0.15s, transform 0.15s;
-}
-.kpi-card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  transform: translateY(-1px);
-}
+/* Charts */
+.chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
+.chart-card { background: var(--white); border-radius: 6px; padding: 1rem; border: 1px solid var(--lighter-gray); }
+.chart-card.full-width { grid-column: 1 / -1; }
+.chart-title { font-size: 0.9rem; font-weight: 600; color: var(--dark-gray); margin-bottom: 0.75rem; }
+.chart-container { position: relative; width: 100%; max-height: 350px; }
+.chart-card.full-width .chart-container { max-height: 300px; }
 
-.kpi-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  color: var(--medium-gray);
-  margin-bottom: 0.25rem;
-}
-
-.kpi-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--black);
-}
-
-.kpi-sub {
-  font-size: 0.7rem;
-  color: var(--medium-gray);
-  margin-top: 0.15rem;
-}
-
-/* Chart Grid */
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.chart-card {
-  background: var(--white);
-  border-radius: 6px;
-  padding: 1rem;
-  border: 1px solid var(--lighter-gray);
-}
-.chart-card.full-width {
-  grid-column: 1 / -1;
-}
-
-.chart-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--dark-gray);
-  margin-bottom: 0.75rem;
-}
-
-.chart-container {
-  position: relative;
-  width: 100%;
-  max-height: 350px;
-}
-.chart-card.full-width .chart-container {
-  max-height: 300px;
-}
-
-/* Tables */
-.table-wrapper {
-  background: var(--white);
-  border-radius: 6px;
-  border: 1px solid var(--lighter-gray);
-  overflow: hidden;
-  margin-bottom: 1.25rem;
-}
-
-.table-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--lighter-gray);
-}
-
-.table-header h3 {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.table-search {
-  padding: 0.4rem 0.75rem;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  font-size: 0.8rem;
-  outline: none;
-  width: 250px;
-}
+/* Table */
+.table-wrapper { background: var(--white); border-radius: 6px; border: 1px solid var(--lighter-gray); overflow: hidden; margin-bottom: 1.25rem; }
+.table-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--lighter-gray); }
+.table-header h3 { font-size: 0.9rem; font-weight: 600; }
+.table-search { padding: 0.4rem 0.75rem; border: 1px solid var(--light-gray); border-radius: 4px; font-size: 0.8rem; outline: none; width: 250px; }
 .table-search:focus { border-color: var(--primary); }
-
-.table-filters {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--lighter-gray);
-  flex-wrap: wrap;
-}
-
-.filter-select {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  font-size: 0.75rem;
-  background: var(--white);
-  color: var(--dark-gray);
-}
-
-.table-scroll {
-  overflow-x: auto;
-  max-height: 600px;
-  overflow-y: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8rem;
-}
-
-thead th {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--dark-gray);
-  color: var(--white);
-  font-weight: 600;
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-}
+.table-scroll { overflow-x: auto; max-height: 600px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+thead th { position: sticky; top: 0; z-index: 10; background: var(--dark-gray); color: var(--white); font-weight: 600; padding: 0.5rem 0.75rem; text-align: left; white-space: nowrap; cursor: pointer; }
 thead th:hover { background: var(--medium-gray); }
 thead th .sort-arrow { margin-left: 4px; font-size: 0.65rem; }
-
-tbody td {
-  padding: 0.4rem 0.75rem;
-  border-bottom: 1px solid var(--lighter-gray);
-  white-space: nowrap;
-  max-width: 300px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+thead th select { display: block; margin-top: 4px; width: 100%; padding: 0.2rem; font-size: 0.7rem; border: 1px solid var(--medium-gray); border-radius: 2px; background: var(--dark-gray); color: var(--white); }
+thead th select option { background: var(--white); color: var(--dark-gray); }
+tbody td { padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--lighter-gray); white-space: nowrap; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
 tbody tr:nth-child(even) { background: var(--row-alt); }
 tbody tr:hover { background: var(--lighter-gray); }
-
-.badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 3px;
-  font-size: 0.7rem;
-  font-weight: 600;
-}
+.badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
 .badge-active { background: #e8ecd0; color: var(--success); }
 .badge-pending { background: #fdf2d0; color: #8a6d00; }
 .badge-closed { background: #f0efea; color: var(--medium-gray); }
+.badge-danger { background: #f5d5d7; color: var(--danger); }
+.record-count { font-size: 0.75rem; color: var(--medium-gray); padding: 0.5rem 1rem; border-top: 1px solid var(--lighter-gray); }
 
-.record-count {
-  font-size: 0.75rem;
-  color: var(--medium-gray);
-  padding: 0.5rem 1rem;
-  border-top: 1px solid var(--lighter-gray);
-}
+/* Buttons */
+.btn { padding: 0.4rem 0.85rem; border: 1px solid var(--light-gray); border-radius: 4px; font-size: 0.8rem; cursor: pointer; background: var(--white); color: var(--dark-gray); transition: all 0.15s; }
+.btn:hover { border-color: var(--primary); color: var(--primary); }
 
 /* Loading */
-.loading-overlay {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-  color: var(--medium-gray);
-}
-.loading-overlay .spinner {
-  width: 32px; height: 32px;
-  border: 3px solid var(--lighter-gray);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-bottom: 0.75rem;
-}
+.loading-overlay { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; color: var(--medium-gray); }
+.loading-overlay .spinner { width: 32px; height: 32px; border: 3px solid var(--lighter-gray); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.75rem; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Export Button */
-.btn {
-  padding: 0.4rem 0.85rem;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  background: var(--white);
-  color: var(--dark-gray);
-  transition: all 0.15s;
-}
-.btn:hover { border-color: var(--primary); color: var(--primary); }
-.btn-primary {
-  background: var(--primary);
-  color: var(--white);
-  border-color: var(--primary);
-}
-.btn-primary:hover { background: var(--primary-dark); }
-
-/* Responsive */
 @media (max-width: 900px) {
   .chart-grid { grid-template-columns: 1fr; }
   .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
   .header { padding: 0.5rem 1rem; }
-  .container { padding: 0.75rem 1rem; }
 }
 </style>
 </head>
@@ -350,6 +123,15 @@ tbody tr:hover { background: var(--lighter-gray); }
 <div class="header">
   <h1>MURL Dashboard</h1>
   <div class="header-right">
+    <div class="date-filters">
+      <button class="btn date-preset active" data-range="all" onclick="setDateRange('all')">All</button>
+      <button class="btn date-preset" data-range="12m" onclick="setDateRange('12m')">12M</button>
+      <button class="btn date-preset" data-range="6m" onclick="setDateRange('6m')">6M</button>
+      <button class="btn date-preset" data-range="3m" onclick="setDateRange('3m')">3M</button>
+      <input type="date" id="dateFrom" class="date-input" onchange="setDateRange('custom')">
+      <span style="color:var(--medium-gray);font-size:0.8rem;">to</span>
+      <input type="date" id="dateTo" class="date-input" onchange="setDateRange('custom')">
+    </div>
     <span id="statusIndicator"><span class="status-dot loading"></span> Loading...</span>
     <span id="recordCount"></span>
   </div>
@@ -357,19 +139,17 @@ tbody tr:hover { background: var(--lighter-gray); }
 
 <div class="tabs">
   <div class="tab active" onclick="switchTab('overview')">Overview</div>
-  <div class="tab" onclick="switchTab('breakdown')">Breakdown</div>
+  <div class="tab" onclick="switchTab('lifecycle')">Lifecycle</div>
   <div class="tab" onclick="switchTab('data')">Data</div>
 </div>
 
 <div class="container">
-
-  <!-- Loading -->
   <div id="loadingOverlay" class="loading-overlay">
     <div class="spinner"></div>
     <div>Loading Parquet data...</div>
   </div>
 
-  <!-- Overview Tab -->
+  <!-- Overview -->
   <div id="tab-overview" class="tab-content active" style="display:none;">
     <div class="kpi-grid" id="kpiGrid"></div>
     <div class="chart-grid">
@@ -388,16 +168,17 @@ tbody tr:hover { background: var(--lighter-gray); }
     </div>
   </div>
 
-  <!-- Breakdown Tab -->
-  <div id="tab-breakdown" class="tab-content">
+  <!-- Lifecycle -->
+  <div id="tab-lifecycle" class="tab-content">
+    <div class="kpi-grid" id="lifecycleKpis"></div>
     <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Top 15 Owners by MURL Count</div>
+        <div class="chart-container"><canvas id="chartOwners"></canvas></div>
+      </div>
       <div class="chart-card">
         <div class="chart-title">Top 15 Requestors</div>
         <div class="chart-container"><canvas id="chartRequestors"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Top 15 Owners</div>
-        <div class="chart-container"><canvas id="chartOwners"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-title">Domain Distribution</div>
@@ -418,31 +199,21 @@ tbody tr:hover { background: var(--lighter-gray); }
     </div>
   </div>
 
-  <!-- Data Tab -->
+  <!-- Data -->
   <div id="tab-data" class="tab-content">
     <div class="table-wrapper">
       <div class="table-header">
         <h3>All MURLs</h3>
         <div style="display:flex;gap:0.5rem;align-items:center;">
-          <input type="text" class="table-search" id="tableSearch" placeholder="Search ID, MURL Name, URL...">
-          <button class="btn" onclick="exportCSV()">Export CSV</button>
+          <input type="text" class="table-search" id="tableSearch" placeholder="Search across all columns...">
+          <button class="btn" onclick="clearAllFilters()">Clear Filters</button>
+          <button class="btn" onclick="exportXLSX()">Export XLSX</button>
         </div>
-      </div>
-      <div class="table-filters">
-        <select class="filter-select" id="filterStatus" onchange="applyFilters()"><option value="">All Status</option></select>
-        <select class="filter-select" id="filterDomain" onchange="applyFilters()"><option value="">All Domains</option></select>
-        <select class="filter-select" id="filterTiny" onchange="applyFilters()">
-          <option value="">All Types</option>
-          <option value="True">Tiny URL</option>
-          <option value="False">Standard URL</option>
-        </select>
-        <button class="btn" onclick="clearFilters()">Clear</button>
       </div>
       <div class="table-scroll" id="tableScroll"></div>
       <div class="record-count" id="tableCount"></div>
     </div>
   </div>
-
 </div>
 
 <script>
@@ -452,29 +223,85 @@ const CHART_PALETTE = [
   '#654D16','#804C95','#45999C','#4972AC','#CC707A',
   '#295B40','#545A9C','#785E4A','#07476F','#620004'
 ];
+const STATUS_COLORS = { 'Active':'#6F7A1A', 'Pending Approval':'#E4A911', 'Closed':'#7A7870', 'Declined':'#BD000C' };
 
-const STATUS_COLORS = {
-  'Active': '#6F7A1A',
-  'Pending Approval': '#E4A911',
-  'Closed': '#7A7870',
-  'Declined': '#BD000C',
-};
+let db = null, conn = null, charts = {};
+let allData = [], filteredData = [];
+let sortCol = 'id', sortAsc = false;
+let columnFilters = {};
+let dateFilter = { from: null, to: null };
 
-let db = null;
-let conn = null;
-let charts = {};
-let allData = [];
-let filteredData = [];
-let sortCol = null;
-let sortAsc = true;
+const TAB_IDS = ['overview','lifecycle','data'];
 
-// ── Data Loading ──
+const TABLE_COLS = [
+  { key: 'id', label: 'ID', width: 70 },
+  { key: 'murl_name', label: 'MURL Name', width: 200 },
+  { key: 'target_url', label: 'Target URL', width: 250 },
+  { key: 'is_tiny_url', label: 'Tiny', width: 60, filterable: true },
+  { key: 'requestor', label: 'Requestor', width: 140, filterable: true },
+  { key: 'created', label: 'Created', width: 140 },
+  { key: 'expiration', label: 'Expiration', width: 100, filterable: true },
+  { key: 'owner_1', label: 'Owner 1', width: 140, filterable: true },
+  { key: 'owner_2', label: 'Owner 2', width: 140, filterable: true },
+  { key: 'status', label: 'Status', width: 120, filterable: true },
+  { key: 'activation', label: 'Activation', width: 100, filterable: true },
+  { key: 'domain', label: 'Domain', width: 120, filterable: true },
+  { key: 'region', label: 'Region', width: 100, filterable: true },
+  { key: 'communication', label: 'Communication', width: 120, filterable: true },
+];
+
+// ── Date Filter ──
+
+function setDateRange(range) {
+  document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
+  const now = new Date();
+  let from = null, to = null;
+  if (range === 'all') { from = null; to = null; }
+  else if (range === '12m') { from = new Date(now.getFullYear()-1, now.getMonth(), now.getDate()); }
+  else if (range === '6m') { from = new Date(now.getFullYear(), now.getMonth()-6, now.getDate()); }
+  else if (range === '3m') { from = new Date(now.getFullYear(), now.getMonth()-3, now.getDate()); }
+  else if (range === 'custom') {
+    const f = document.getElementById('dateFrom').value;
+    const t = document.getElementById('dateTo').value;
+    if (f) from = new Date(f); if (t) to = new Date(t);
+  }
+  if (range !== 'custom') {
+    const btn = document.querySelector(`.date-preset[data-range="${range}"]`);
+    if (btn) btn.classList.add('active');
+    document.getElementById('dateFrom').value = from ? from.toISOString().split('T')[0] : '';
+    document.getElementById('dateTo').value = to ? to.toISOString().split('T')[0] : '';
+  }
+  dateFilter.from = from; dateFilter.to = to;
+  renderDashboard();
+}
+
+function parseDDMMYYYY(str) {
+  if (!str) return null;
+  const parts = str.split('.');
+  if (parts.length < 3) return null;
+  return new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+}
+
+function dateWhere() {
+  const c = [];
+  if (dateFilter.from) {
+    const d = dateFilter.from;
+    c.push(`TRY_CAST(SUBSTRING(created,7,4)||'-'||SUBSTRING(created,4,2)||'-'||SUBSTRING(created,1,2) AS DATE) >= '${d.toISOString().split('T')[0]}'`);
+  }
+  if (dateFilter.to) {
+    const d = dateFilter.to;
+    c.push(`TRY_CAST(SUBSTRING(created,7,4)||'-'||SUBSTRING(created,4,2)||'-'||SUBSTRING(created,1,2) AS DATE) <= '${d.toISOString().split('T')[0]}'`);
+  }
+  return c.length ? ' AND ' + c.join(' AND ') : '';
+}
+
+// ── DuckDB ──
 
 async function initDuckDB() {
   if (!window.duckdb) {
     await Promise.race([
       new Promise(r => window.addEventListener('duckdb-ready', r, { once: true })),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('DuckDB load timeout')), 15000))
+      new Promise((_, rej) => setTimeout(() => rej(new Error('DuckDB load timeout')), 15000))
     ]);
   }
   const m = window.duckdb;
@@ -488,26 +315,19 @@ async function initDuckDB() {
 }
 
 async function loadParquet() {
-  const basePaths = [
+  const paths = [
     window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '') + '/../output/',
-    window.location.origin + '/output/',
-    '../output/'
+    window.location.origin + '/output/', '../output/'
   ];
-
-  let loaded = false;
-  for (const base of basePaths) {
+  for (const base of paths) {
     try {
-      const url = base + 'murl.parquet';
-      const response = await fetch(url);
-      if (!response.ok) continue;
-      const buffer = await response.arrayBuffer();
-      await db.registerFileBuffer('murl.parquet', new Uint8Array(buffer));
-      loaded = true;
-      break;
-    } catch (e) { continue; }
+      const resp = await fetch(base + 'murl.parquet');
+      if (!resp.ok) continue;
+      await db.registerFileBuffer('murl.parquet', new Uint8Array(await resp.arrayBuffer()));
+      return;
+    } catch(e) { continue; }
   }
-
-  if (!loaded) throw new Error('Could not load murl.parquet. Run the pipeline first.');
+  throw new Error('Could not load murl.parquet');
 }
 
 async function query(sql) {
@@ -515,11 +335,9 @@ async function query(sql) {
   return result.toArray().map(row => {
     const obj = {};
     for (const key of Object.keys(row)) {
-      let val = row[key];
-      if (val !== null && typeof val === 'object' && typeof val.toString === 'function' && !(val instanceof Date)) {
-        val = val.toString();
-      }
-      obj[key] = val;
+      let v = row[key];
+      if (v !== null && typeof v === 'object' && typeof v.toString === 'function' && !(v instanceof Date)) v = v.toString();
+      obj[key] = v;
     }
     return obj;
   });
@@ -528,112 +346,135 @@ async function query(sql) {
 // ── Tabs ──
 
 function switchTab(id) {
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    const ids = ['overview', 'breakdown', 'data'];
-    t.classList.toggle('active', ids[i] === id);
-  });
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', TAB_IDS[i] === id));
+  document.querySelectorAll('.tab-content').forEach(c => { c.classList.remove('active'); c.style.display = 'none'; });
   const el = document.getElementById('tab-' + id);
   if (el) { el.style.display = 'block'; el.classList.add('active'); }
+}
+
+// ── Render All ──
+
+async function renderDashboard() {
+  await Promise.allSettled([renderKPIs(), renderOverviewCharts(), renderLifecycle(), loadTableData()]);
 }
 
 // ── KPIs ──
 
 async function renderKPIs() {
-  const kpis = await query(`
-    SELECT
-      COUNT(*) as total,
-      SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
-      SUM(CASE WHEN status = 'Pending Approval' THEN 1 ELSE 0 END) as pending,
-      SUM(CASE WHEN is_tiny_url = 'True' THEN 1 ELSE 0 END) as tiny,
+  const w = `WHERE created IS NOT NULL ${dateWhere()}`;
+  const k = (await query(`
+    SELECT COUNT(*) as total,
+      SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END) as active,
+      SUM(CASE WHEN status='Pending Approval' THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN is_tiny_url='True' THEN 1 ELSE 0 END) as tiny,
       COUNT(DISTINCT requestor) as requestors,
-      COUNT(DISTINCT owner_1) as owners,
-      MIN(created) as earliest,
-      MAX(created) as latest
-    FROM 'murl.parquet'
-  `);
-  const k = kpis[0];
-  const grid = document.getElementById('kpiGrid');
-  const items = [
-    { label: 'Total MURLs', value: fmt(k.total) },
-    { label: 'Active', value: fmt(k.active), sub: pct(k.active, k.total) },
-    { label: 'Pending Approval', value: fmt(k.pending), sub: pct(k.pending, k.total) },
-    { label: 'Tiny URLs', value: fmt(k.tiny), sub: pct(k.tiny, k.total) },
-    { label: 'Unique Requestors', value: fmt(k.requestors) },
-    { label: 'Unique Owners', value: fmt(k.owners) },
-    { label: 'Earliest MURL', value: k.earliest || '-' },
-    { label: 'Latest MURL', value: k.latest || '-' },
-  ];
-  grid.innerHTML = items.map(i => `
-    <div class="kpi-card">
-      <div class="kpi-label">${i.label}</div>
-      <div class="kpi-value">${i.value}</div>
-      ${i.sub ? `<div class="kpi-sub">${i.sub}</div>` : ''}
-    </div>
-  `).join('');
+      COUNT(DISTINCT owner_1) as owners
+    FROM 'murl.parquet' ${w}
+  `))[0];
+  document.getElementById('kpiGrid').innerHTML = [
+    { l:'Total MURLs', v:fmt(k.total) },
+    { l:'Active', v:fmt(k.active), s:pct(k.active,k.total) },
+    { l:'Pending', v:fmt(k.pending), s:pct(k.pending,k.total) },
+    { l:'Tiny URLs', v:fmt(k.tiny), s:pct(k.tiny,k.total) },
+    { l:'Unique Requestors', v:fmt(k.requestors) },
+    { l:'Unique Owners', v:fmt(k.owners) },
+  ].map(i=>`<div class="kpi-card"><div class="kpi-label">${i.l}</div><div class="kpi-value">${i.v}</div>${i.s?`<div class="kpi-sub">${i.s}</div>`:''}</div>`).join('');
 }
 
 // ── Charts ──
 
-function destroyChart(id) {
-  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
-}
+function destroyChart(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
 
-async function renderTimeline() {
-  const data = await query(`
-    SELECT
-      STRFTIME(TRY_CAST(SUBSTRING(created, 7, 4) || '-' || SUBSTRING(created, 4, 2) || '-01' AS DATE), '%Y-%m') as month,
-      COUNT(*) as cnt
-    FROM 'murl.parquet'
-    WHERE created IS NOT NULL AND LENGTH(created) >= 10
-    GROUP BY month
-    ORDER BY month
+async function renderOverviewCharts() {
+  const w = `WHERE created IS NOT NULL AND LENGTH(created)>=10 ${dateWhere()}`;
+  // Timeline
+  const timeline = await query(`
+    SELECT SUBSTRING(created,7,4)||'-'||SUBSTRING(created,4,2) as month, COUNT(*) as cnt
+    FROM 'murl.parquet' ${w}
+    GROUP BY month ORDER BY month
   `);
   destroyChart('timeline');
   charts.timeline = new Chart(document.getElementById('chartTimeline'), {
-    type: 'bar',
-    data: {
-      labels: data.map(d => d.month),
-      datasets: [{ label: 'MURLs Created', data: data.map(d => Number(d.cnt)), backgroundColor: '#E60000', borderRadius: 3 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false }, ticks: { maxRotation: 45, font: { size: 10 } } },
-        y: { beginAtZero: true, grid: { color: '#ECEBE4' } }
-      }
-    }
+    type:'bar',
+    data:{ labels:timeline.map(d=>d.month), datasets:[{label:'MURLs Created',data:timeline.map(d=>Number(d.cnt)),backgroundColor:'#E60000',borderRadius:3}] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{grid:{display:false},ticks:{maxRotation:45,font:{size:10}}}, y:{beginAtZero:true,grid:{color:'#ECEBE4'}} } }
   });
+
+  // Status
+  await renderDoughnut('status','chartStatus',
+    `SELECT COALESCE(status,'(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' ${w} GROUP BY label ORDER BY cnt DESC`,
+    STATUS_COLORS);
+
+  // Tiny
+  await renderDoughnut('tiny','chartTiny',
+    `SELECT CASE WHEN is_tiny_url='True' THEN 'Tiny URL' ELSE 'Standard' END as label, COUNT(*) as cnt FROM 'murl.parquet' ${w} GROUP BY label ORDER BY cnt DESC`,
+    {'Tiny URL':'#00759E','Standard':'#CCCABC'});
+}
+
+async function renderLifecycle() {
+  const w = `WHERE created IS NOT NULL ${dateWhere()}`;
+
+  // Lifecycle KPIs
+  const lk = (await query(`
+    SELECT
+      SUM(CASE WHEN status='Active' AND updated IS NOT NULL AND
+        TRY_CAST(SUBSTRING(updated,7,4)||'-'||SUBSTRING(updated,4,2)||'-'||SUBSTRING(updated,1,2) AS DATE)
+        < CURRENT_DATE - INTERVAL '365 days' THEN 1 ELSE 0 END) as stale_1y,
+      SUM(CASE WHEN status='Active' AND updated IS NOT NULL AND
+        TRY_CAST(SUBSTRING(updated,7,4)||'-'||SUBSTRING(updated,4,2)||'-'||SUBSTRING(updated,1,2) AS DATE)
+        < CURRENT_DATE - INTERVAL '730 days' THEN 1 ELSE 0 END) as stale_2y,
+      SUM(CASE WHEN expiration IS NOT NULL AND expiration != '' THEN 1 ELSE 0 END) as has_expiration,
+      COUNT(*) as total
+    FROM 'murl.parquet' ${w}
+  `))[0];
+  document.getElementById('lifecycleKpis').innerHTML = [
+    { l:'Stale >1 Year', v:fmt(lk.stale_1y), s:'Active, not updated in 1y+' },
+    { l:'Stale >2 Years', v:fmt(lk.stale_2y), s:'Active, not updated in 2y+' },
+    { l:'Has Expiration', v:fmt(lk.has_expiration), s:pct(lk.has_expiration,lk.total) },
+  ].map(i=>`<div class="kpi-card"><div class="kpi-label">${i.l}</div><div class="kpi-value">${i.v}</div>${i.s?`<div class="kpi-sub">${i.s}</div>`:''}</div>`).join('');
+
+  // Owners
+  await renderBarH('owners','chartOwners',
+    `SELECT COALESCE(owner_1,'(unassigned)') as label, COUNT(*) as cnt FROM 'murl.parquet' ${w} GROUP BY label ORDER BY cnt DESC LIMIT 15`);
+
+  // Requestors
+  await renderBarH('requestors','chartRequestors',
+    `SELECT COALESCE(requestor,'(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' ${w} GROUP BY label ORDER BY cnt DESC LIMIT 15`);
+
+  // Domain
+  await renderDoughnut('domains','chartDomains',
+    `SELECT COALESCE(domain,'(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' ${w} GROUP BY label ORDER BY cnt DESC LIMIT 10`, null);
+
+  // Region
+  await renderDoughnut('regions','chartRegions',
+    `SELECT COALESCE(region,'(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' ${w} GROUP BY label ORDER BY cnt DESC LIMIT 10`, null);
+
+  // Activation
+  await renderDoughnut('activation','chartActivation',
+    `SELECT COALESCE(activation,'(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' ${w} GROUP BY label ORDER BY cnt DESC`, null);
+
+  // Communication
+  await renderDoughnut('communication','chartCommunication',
+    `SELECT COALESCE(communication,'(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' ${w} GROUP BY label ORDER BY cnt DESC LIMIT 10`, null);
 }
 
 async function renderDoughnut(id, canvasId, sql, colorMap) {
   const data = await query(sql);
   destroyChart(id);
-  const labels = data.map(d => d.label || '(empty)');
-  const values = data.map(d => Number(d.cnt));
+  const labels = data.map(d=>d.label||'(empty)');
+  const values = data.map(d=>Number(d.cnt));
   const colors = colorMap
-    ? labels.map(l => colorMap[l] || CHART_PALETTE[labels.indexOf(l) % CHART_PALETTE.length])
-    : labels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]);
-
+    ? labels.map(l=>colorMap[l]||CHART_PALETTE[labels.indexOf(l)%CHART_PALETTE.length])
+    : labels.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]);
   charts[id] = new Chart(document.getElementById(canvasId), {
-    type: 'doughnut',
-    data: {
-      labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 1, borderColor: '#fff' }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right', labels: { font: { size: 11 }, generateLabels: (chart) => {
-          const ds = chart.data.datasets[0];
-          const total = ds.data.reduce((a, b) => a + b, 0);
-          return chart.data.labels.map((l, i) => ({
-            text: `${l}  ${fmt(ds.data[i])} (${(ds.data[i]/total*100).toFixed(1)}%)`,
-            fillStyle: ds.backgroundColor[i],
-            hidden: false, index: i
-          }));
-        }}}
-      }
+    type:'doughnut',
+    data:{ labels, datasets:[{data:values,backgroundColor:colors,borderWidth:1,borderColor:'#fff'}] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'right', labels:{ font:{size:11}, generateLabels:(chart)=>{
+        const ds=chart.data.datasets[0]; const total=ds.data.reduce((a,b)=>a+b,0);
+        return chart.data.labels.map((l,i)=>({text:`${l}  ${fmt(ds.data[i])} (${(ds.data[i]/total*100).toFixed(1)}%)`,fillStyle:ds.backgroundColor[i],hidden:false,index:i}));
+      }}}}
     }
   });
 }
@@ -642,192 +483,153 @@ async function renderBarH(id, canvasId, sql) {
   const data = await query(sql);
   destroyChart(id);
   charts[id] = new Chart(document.getElementById(canvasId), {
-    type: 'bar',
-    data: {
-      labels: data.map(d => d.label || '(empty)'),
-      datasets: [{ data: data.map(d => Number(d.cnt)), backgroundColor: '#AF8626', borderRadius: 3 }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { beginAtZero: true, grid: { color: '#ECEBE4' } },
-        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
-      }
-    }
+    type:'bar',
+    data:{ labels:data.map(d=>d.label||'(empty)'), datasets:[{data:data.map(d=>Number(d.cnt)),backgroundColor:'#AF8626',borderRadius:3}] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{ x:{beginAtZero:true,grid:{color:'#ECEBE4'}}, y:{grid:{display:false},ticks:{font:{size:10}}} } }
   });
 }
 
-async function renderOverviewCharts() {
-  await renderTimeline();
-  await renderDoughnut('status', 'chartStatus',
-    `SELECT COALESCE(status, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC`,
-    STATUS_COLORS
-  );
-  await renderDoughnut('tiny', 'chartTiny',
-    `SELECT CASE WHEN is_tiny_url = 'True' THEN 'Tiny URL' ELSE 'Standard' END as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC`,
-    { 'Tiny URL': '#00759E', 'Standard': '#CCCABC' }
-  );
-}
-
-async function renderBreakdownCharts() {
-  await renderBarH('requestors', 'chartRequestors',
-    `SELECT COALESCE(requestor, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 15`
-  );
-  await renderBarH('owners', 'chartOwners',
-    `SELECT COALESCE(owner_1, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 15`
-  );
-  await renderDoughnut('domains', 'chartDomains',
-    `SELECT COALESCE(domain, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 10`,
-    null
-  );
-  await renderDoughnut('regions', 'chartRegions',
-    `SELECT COALESCE(region, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 10`,
-    null
-  );
-  await renderDoughnut('activation', 'chartActivation',
-    `SELECT COALESCE(activation, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC`,
-    null
-  );
-  await renderDoughnut('communication', 'chartCommunication',
-    `SELECT COALESCE(communication, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 10`,
-    null
-  );
-}
-
-// ── Data Table ──
+// ── Data Table (Tableau-style) ──
 
 async function loadTableData() {
-  allData = await query(`SELECT * FROM 'murl.parquet' ORDER BY id DESC`);
+  const w = `WHERE 1=1 ${dateWhere()}`;
+  allData = await query(`SELECT * FROM 'murl.parquet' ${w} ORDER BY id DESC`);
+  columnFilters = {};
   filteredData = [...allData];
-
-  const statuses = [...new Set(allData.map(d => d.status).filter(Boolean))].sort();
-  const domains = [...new Set(allData.map(d => d.domain).filter(Boolean))].sort();
-
-  const fStatus = document.getElementById('filterStatus');
-  statuses.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; fStatus.appendChild(o); });
-
-  const fDomain = document.getElementById('filterDomain');
-  domains.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; fDomain.appendChild(o); });
-
-  document.getElementById('tableSearch').addEventListener('input', applyFilters);
   renderTable();
 }
 
-function applyFilters() {
-  const search = document.getElementById('tableSearch').value.toLowerCase();
-  const status = document.getElementById('filterStatus').value;
-  const domain = document.getElementById('filterDomain').value;
-  const tiny = document.getElementById('filterTiny').value;
-
+function applyTableFilters() {
+  const search = (document.getElementById('tableSearch').value || '').toLowerCase();
   filteredData = allData.filter(row => {
-    if (status && row.status !== status) return false;
-    if (domain && row.domain !== domain) return false;
-    if (tiny && row.is_tiny_url !== tiny) return false;
+    for (const [col, val] of Object.entries(columnFilters)) {
+      if (val && (row[col] || '') !== val) return false;
+    }
     if (search) {
-      const haystack = [row.id, row.murl_name, row.target_url, row.requestor, row.owner_1, row.owner_2, row.description]
-        .filter(Boolean).join(' ').toLowerCase();
-      if (!haystack.includes(search)) return false;
+      const hay = TABLE_COLS.map(c => row[c.key] || '').join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
     }
     return true;
   });
-  renderTable();
+  if (sortCol) {
+    filteredData.sort((a,b) => {
+      let va=a[sortCol]||'', vb=b[sortCol]||'';
+      if (!isNaN(va)&&!isNaN(vb)){va=Number(va);vb=Number(vb);}
+      return sortAsc ? (va<vb?-1:va>vb?1:0) : (va>vb?-1:va<vb?1:0);
+    });
+  }
+  renderTableBody();
 }
 
-function clearFilters() {
-  document.getElementById('tableSearch').value = '';
-  document.getElementById('filterStatus').value = '';
-  document.getElementById('filterDomain').value = '';
-  document.getElementById('filterTiny').value = '';
-  filteredData = [...allData];
-  renderTable();
+function setColumnFilter(col, val) {
+  if (val) columnFilters[col] = val;
+  else delete columnFilters[col];
+  applyTableFilters();
 }
 
 function sortTable(col) {
-  if (sortCol === col) { sortAsc = !sortAsc; }
-  else { sortCol = col; sortAsc = true; }
-  filteredData.sort((a, b) => {
-    let va = a[col] || '', vb = b[col] || '';
-    if (!isNaN(va) && !isNaN(vb)) { va = Number(va); vb = Number(vb); }
-    if (va < vb) return sortAsc ? -1 : 1;
-    if (va > vb) return sortAsc ? 1 : -1;
-    return 0;
-  });
-  renderTable();
+  if (sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
+  applyTableFilters();
 }
 
-const TABLE_COLS = [
-  { key: 'id', label: 'ID' },
-  { key: 'murl_name', label: 'MURL Name' },
-  { key: 'target_url', label: 'Target URL' },
-  { key: 'is_tiny_url', label: 'Tiny' },
-  { key: 'requestor', label: 'Requestor' },
-  { key: 'created', label: 'Created' },
-  { key: 'expiration', label: 'Expiration' },
-  { key: 'owner_1', label: 'Owner 1' },
-  { key: 'owner_2', label: 'Owner 2' },
-  { key: 'status', label: 'Status' },
-];
+function clearAllFilters() {
+  columnFilters = {};
+  document.getElementById('tableSearch').value = '';
+  document.querySelectorAll('thead select').forEach(s => s.value = '');
+  filteredData = [...allData];
+  renderTableBody();
+}
+
+function getUniqueValues(col) {
+  return [...new Set(allData.map(d => d[col]).filter(Boolean))].sort();
+}
 
 function statusBadge(val) {
   if (!val) return '';
-  const cls = val === 'Active' ? 'badge-active' : val.includes('Pending') ? 'badge-pending' : 'badge-closed';
+  const cls = val==='Active'?'badge-active':val.includes('Pending')?'badge-pending':val==='Declined'?'badge-danger':'badge-closed';
   return `<span class="badge ${cls}">${val}</span>`;
 }
 
 function renderTable() {
-  const maxRows = 500;
-  const display = filteredData.slice(0, maxRows);
-  const arrow = col => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
-
+  const arrow = col => sortCol===col?(sortAsc?' &#9650;':' &#9660;'):'';
   let html = '<table><thead><tr>';
   TABLE_COLS.forEach(c => {
-    html += `<th onclick="sortTable('${c.key}')">${c.label}<span class="sort-arrow">${arrow(c.key)}</span></th>`;
+    html += `<th style="min-width:${c.width}px">`;
+    html += `<div onclick="sortTable('${c.key}')" style="cursor:pointer">${c.label}<span class="sort-arrow">${arrow(c.key)}</span></div>`;
+    if (c.filterable) {
+      const opts = getUniqueValues(c.key);
+      html += `<select onchange="setColumnFilter('${c.key}',this.value)"><option value="">All</option>`;
+      opts.forEach(o => html += `<option value="${o}">${o}</option>`);
+      html += '</select>';
+    }
+    html += '</th>';
   });
-  html += '</tr></thead><tbody>';
+  html += '</tr></thead><tbody id="tableBody"></tbody></table>';
+  document.getElementById('tableScroll').innerHTML = html;
+  document.getElementById('tableSearch').addEventListener('input', applyTableFilters);
+  renderTableBody();
+}
 
+function renderTableBody() {
+  const max = 500;
+  const display = filteredData.slice(0, max);
+  let html = '';
   display.forEach(row => {
     html += '<tr>';
     TABLE_COLS.forEach(c => {
       let val = row[c.key] || '';
-      if (c.key === 'status') val = statusBadge(val);
-      else if (c.key === 'target_url' && val) val = `<a href="${val}" target="_blank" style="color:#0C7EC6;">${val}</a>`;
+      if (c.key==='status') val = statusBadge(val);
+      else if (c.key==='target_url'&&val) val=`<a href="${val}" target="_blank" style="color:#0C7EC6;text-decoration:none;">${val}</a>`;
       html += `<td>${val}</td>`;
     });
     html += '</tr>';
   });
-
-  html += '</tbody></table>';
-  document.getElementById('tableScroll').innerHTML = html;
-  const showing = filteredData.length > maxRows ? `Showing ${maxRows} of ${fmt(filteredData.length)}` : `${fmt(filteredData.length)}`;
-  document.getElementById('tableCount').textContent = `${showing} records (${fmt(allData.length)} total)`;
+  document.getElementById('tableBody').innerHTML = html;
+  const s = filteredData.length>max?`Showing ${max} of ${fmt(filteredData.length)}`:fmt(filteredData.length);
+  document.getElementById('tableCount').textContent = `${s} records (${fmt(allData.length)} total)`;
 }
 
-// ── CSV Export ──
+// ── XLSX Export ──
 
-function exportCSV() {
+async function exportXLSX() {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('MURL Export');
   const cols = TABLE_COLS;
-  const header = cols.map(c => c.label).join(',');
-  const rows = filteredData.map(row =>
-    cols.map(c => {
-      let v = row[c.key] || '';
-      v = String(v).replace(/"/g, '""');
-      return `"${v}"`;
-    }).join(',')
-  );
-  const csv = [header, ...rows].join('\n');
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `murl_export_${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
+  const headerRow = ws.addRow(cols.map(c=>c.label));
+  headerRow.eachCell(cell=>{
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF404040'}};
+    cell.font={name:'Arial',bold:true,color:{argb:'FFFFFFFF'},size:10};
+    cell.alignment={horizontal:'left',vertical:'middle'};
+    cell.border={bottom:{style:'thin',color:{argb:'FFE60000'}},right:{style:'thin',color:{argb:'FFCCCABC'}}};
+  });
+  filteredData.forEach((row,idx)=>{
+    const dr=ws.addRow(cols.map(c=>row[c.key]||''));
+    dr.eachCell(cell=>{
+      cell.font={name:'Arial',size:10};
+      cell.alignment={horizontal:'left',vertical:'top'};
+      cell.border={bottom:{style:'thin',color:{argb:'FFCCCABC'}},right:{style:'thin',color:{argb:'FFCCCABC'}}};
+      if(idx%2===0) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF8F7F2'}};
+    });
+  });
+  cols.forEach((c,i)=>{
+    let mx=c.label.length;
+    filteredData.slice(0,100).forEach(r=>{mx=Math.max(mx,String(r[c.key]||'').length);});
+    ws.getColumn(i+1).width=Math.min(mx+2,50);
+  });
+  ws.views=[{state:'frozen',ySplit:1}];
+  ws.autoFilter={from:{row:1,column:1},to:{row:1,column:cols.length}};
+  const buffer=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`murl_export_${new Date().toISOString().split('T')[0]}.xlsx`;a.click();
 }
 
 // ── Helpers ──
 
-function fmt(n) { return n == null ? '-' : Number(n).toLocaleString(); }
-function pct(n, total) { return total ? (n / total * 100).toFixed(1) + '%' : '-'; }
+function fmt(n){return n==null?'-':Number(n).toLocaleString();}
+function pct(n,t){return t?(n/t*100).toFixed(1)+'%':'-';}
 
 // ── Init ──
 
@@ -835,33 +637,23 @@ async function init() {
   try {
     await initDuckDB();
     await loadParquet();
-
-    document.getElementById('loadingOverlay').style.display = 'none';
-    document.getElementById('tab-overview').style.display = 'block';
-
-    const countResult = await query(`SELECT COUNT(*) as cnt FROM 'murl.parquet'`);
-    document.getElementById('recordCount').textContent = `${fmt(countResult[0].cnt)} records`;
-    document.getElementById('statusIndicator').innerHTML = '<span class="status-dot ok"></span> Ready';
-
-    await Promise.allSettled([
-      renderKPIs(),
-      renderOverviewCharts(),
-      renderBreakdownCharts(),
-      loadTableData(),
-    ]);
-
-  } catch (e) {
+    document.getElementById('loadingOverlay').style.display='none';
+    document.getElementById('tab-overview').style.display='block';
+    const cnt=(await query(`SELECT COUNT(*) as cnt FROM 'murl.parquet'`))[0].cnt;
+    document.getElementById('recordCount').textContent=`${fmt(cnt)} records`;
+    document.getElementById('statusIndicator').innerHTML='<span class="status-dot ok"></span> Ready';
+    await renderDashboard();
+  } catch(e) {
     console.error(e);
-    document.getElementById('loadingOverlay').innerHTML = `
+    document.getElementById('loadingOverlay').innerHTML=`
       <div style="color:var(--danger);font-size:0.9rem;text-align:center;">
         <div style="font-weight:600;margin-bottom:0.5rem;">Failed to load data</div>
         <div>${e.message}</div>
         <div style="margin-top:0.5rem;color:var(--medium-gray);">Run <code>python main.py</code> to generate the Parquet file.</div>
       </div>`;
-    document.getElementById('statusIndicator').innerHTML = '<span class="status-dot error"></span> Error';
+    document.getElementById('statusIndicator').innerHTML='<span class="status-dot error"></span> Error';
   }
 }
-
 init();
 </script>
 </body>
