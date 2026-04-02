@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MURL Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser-blocking.js"></script>
+<style>
+:root {
+  --primary: #E60000;
+  --primary-dark: #8A000A;
+  --black: #000000;
+  --dark-gray: #404040;
+  --medium-gray: #7A7870;
+  --light-gray: #CCCABC;
+  --lighter-gray: #ECEBE4;
+  --page-bg: #F7F7F5;
+  --row-alt: #F8F7F2;
+  --white: #FFFFFF;
+  --success: #6F7A1A;
+  --warning: #E4A911;
+  --danger: #BD000C;
+  --info: #0C7EC6;
+  --bronze: #AF8626;
+  --lagoon: #00759E;
+  --kiwi: #879420;
+  --aubergine: #4B2D58;
+  --sand: #9F8865;
+  --plum: #2E476B;
+  --sage: #469A6C;
+  --blush: #AD3E4A;
+  --lavender: #8489BD;
+  --lake: #0C7EC6;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background: var(--page-bg);
+  color: var(--dark-gray);
+  line-height: 1.5;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--white);
+  border-bottom: 2px solid var(--primary);
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--black);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--medium-gray);
+}
+
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 4px;
+}
+.status-dot.ok { background: var(--success); }
+.status-dot.loading { background: var(--warning); }
+.status-dot.error { background: var(--danger); }
+
+.tabs {
+  display: flex;
+  gap: 0;
+  background: var(--white);
+  border-bottom: 1px solid var(--lighter-gray);
+  padding: 0 1.5rem;
+}
+
+.tab {
+  padding: 0.6rem 1.25rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--medium-gray);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.tab:hover { color: var(--dark-gray); }
+.tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.container {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.kpi-card {
+  background: var(--white);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--lighter-gray);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.kpi-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+
+.kpi-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--medium-gray);
+  margin-bottom: 0.25rem;
+}
+
+.kpi-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--black);
+}
+
+.kpi-sub {
+  font-size: 0.7rem;
+  color: var(--medium-gray);
+  margin-top: 0.15rem;
+}
+
+/* Chart Grid */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.chart-card {
+  background: var(--white);
+  border-radius: 6px;
+  padding: 1rem;
+  border: 1px solid var(--lighter-gray);
+}
+.chart-card.full-width {
+  grid-column: 1 / -1;
+}
+
+.chart-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--dark-gray);
+  margin-bottom: 0.75rem;
+}
+
+.chart-container {
+  position: relative;
+  width: 100%;
+}
+
+/* Tables */
+.table-wrapper {
+  background: var(--white);
+  border-radius: 6px;
+  border: 1px solid var(--lighter-gray);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--lighter-gray);
+}
+
+.table-header h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.table-search {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  outline: none;
+  width: 250px;
+}
+.table-search:focus { border-color: var(--primary); }
+
+.table-filters {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--lighter-gray);
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  background: var(--white);
+  color: var(--dark-gray);
+}
+
+.table-scroll {
+  overflow-x: auto;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--dark-gray);
+  color: var(--white);
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+thead th:hover { background: var(--medium-gray); }
+thead th .sort-arrow { margin-left: 4px; font-size: 0.65rem; }
+
+tbody td {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--lighter-gray);
+  white-space: nowrap;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+tbody tr:nth-child(even) { background: var(--row-alt); }
+tbody tr:hover { background: var(--lighter-gray); }
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.badge-active { background: #e8ecd0; color: var(--success); }
+.badge-pending { background: #fdf2d0; color: #8a6d00; }
+.badge-closed { background: #f0efea; color: var(--medium-gray); }
+
+.record-count {
+  font-size: 0.75rem;
+  color: var(--medium-gray);
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--lighter-gray);
+}
+
+/* Loading */
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: var(--medium-gray);
+}
+.loading-overlay .spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--lighter-gray);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 0.75rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Export Button */
+.btn {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: var(--white);
+  color: var(--dark-gray);
+  transition: all 0.15s;
+}
+.btn:hover { border-color: var(--primary); color: var(--primary); }
+.btn-primary {
+  background: var(--primary);
+  color: var(--white);
+  border-color: var(--primary);
+}
+.btn-primary:hover { background: var(--primary-dark); }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .chart-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .header { padding: 0.5rem 1rem; }
+  .container { padding: 0.75rem 1rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>MURL Dashboard</h1>
+  <div class="header-right">
+    <span id="statusIndicator"><span class="status-dot loading"></span> Loading...</span>
+    <span id="recordCount"></span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('overview')">Overview</div>
+  <div class="tab" onclick="switchTab('breakdown')">Breakdown</div>
+  <div class="tab" onclick="switchTab('data')">Data</div>
+</div>
+
+<div class="container">
+
+  <!-- Loading -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div>Loading Parquet data...</div>
+  </div>
+
+  <!-- Overview Tab -->
+  <div id="tab-overview" class="tab-content active" style="display:none;">
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="chart-grid">
+      <div class="chart-card full-width">
+        <div class="chart-title">MURLs Created Over Time (Monthly)</div>
+        <div class="chart-container"><canvas id="chartTimeline"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Status Distribution</div>
+        <div class="chart-container"><canvas id="chartStatus"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Is Tiny URL</div>
+        <div class="chart-container"><canvas id="chartTiny"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breakdown Tab -->
+  <div id="tab-breakdown" class="tab-content">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Top 15 Requestors</div>
+        <div class="chart-container"><canvas id="chartRequestors"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top 15 Owners</div>
+        <div class="chart-container"><canvas id="chartOwners"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Domain Distribution</div>
+        <div class="chart-container"><canvas id="chartDomains"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Region Distribution</div>
+        <div class="chart-container"><canvas id="chartRegions"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Activation Status</div>
+        <div class="chart-container"><canvas id="chartActivation"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Communication Channel</div>
+        <div class="chart-container"><canvas id="chartCommunication"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Tab -->
+  <div id="tab-data" class="tab-content">
+    <div class="table-wrapper">
+      <div class="table-header">
+        <h3>All MURLs</h3>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="text" class="table-search" id="tableSearch" placeholder="Search ID, MURL Name, URL...">
+          <button class="btn" onclick="exportCSV()">Export CSV</button>
+        </div>
+      </div>
+      <div class="table-filters">
+        <select class="filter-select" id="filterStatus" onchange="applyFilters()"><option value="">All Status</option></select>
+        <select class="filter-select" id="filterDomain" onchange="applyFilters()"><option value="">All Domains</option></select>
+        <select class="filter-select" id="filterTiny" onchange="applyFilters()">
+          <option value="">All Types</option>
+          <option value="True">Tiny URL</option>
+          <option value="False">Standard URL</option>
+        </select>
+        <button class="btn" onclick="clearFilters()">Clear</button>
+      </div>
+      <div class="table-scroll" id="tableScroll"></div>
+      <div class="record-count" id="tableCount"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CHART_PALETTE = [
+  '#AF8626','#00759E','#879420','#4B2D58','#9F8865',
+  '#2E476B','#469A6C','#AD3E4A','#8489BD','#0C7EC6',
+  '#654D16','#804C95','#45999C','#4972AC','#CC707A',
+  '#295B40','#545A9C','#785E4A','#07476F','#620004'
+];
+
+const STATUS_COLORS = {
+  'Active': '#6F7A1A',
+  'Pending Approval': '#E4A911',
+  'Closed': '#7A7870',
+  'Declined': '#BD000C',
+};
+
+let db = null;
+let conn = null;
+let charts = {};
+let allData = [];
+let filteredData = [];
+let sortCol = null;
+let sortAsc = true;
+
+// ── Data Loading ──
+
+async function initDuckDB() {
+  const DUCKDB_CONFIG = await duckdb.selectBundle({
+    mvp: { mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-mvp.wasm', mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser-mvp.worker.js' },
+    eh: { mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-eh.wasm', mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser-eh.worker.js' }
+  });
+  const logger = new duckdb.ConsoleLogger();
+  const worker = new Worker(DUCKDB_CONFIG.mainWorker);
+  db = new duckdb.AsyncDuckDB(logger, worker);
+  await db.instantiate(DUCKDB_CONFIG.mainModule);
+  conn = await db.connect();
+}
+
+async function loadParquet() {
+  const basePaths = [
+    window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '') + '/../output/',
+    window.location.origin + '/output/',
+    '../output/'
+  ];
+
+  let loaded = false;
+  for (const base of basePaths) {
+    try {
+      const url = base + 'murl.parquet';
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const buffer = await response.arrayBuffer();
+      await db.registerFileBuffer('murl.parquet', new Uint8Array(buffer));
+      loaded = true;
+      break;
+    } catch (e) { continue; }
+  }
+
+  if (!loaded) throw new Error('Could not load murl.parquet. Run the pipeline first.');
+}
+
+async function query(sql) {
+  const result = await conn.query(sql);
+  return result.toArray().map(row => {
+    const obj = {};
+    for (const key of Object.keys(row)) {
+      let val = row[key];
+      if (val !== null && typeof val === 'object' && typeof val.toString === 'function' && !(val instanceof Date)) {
+        val = val.toString();
+      }
+      obj[key] = val;
+    }
+    return obj;
+  });
+}
+
+// ── Tabs ──
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const ids = ['overview', 'breakdown', 'data'];
+    t.classList.toggle('active', ids[i] === id);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const el = document.getElementById('tab-' + id);
+  if (el) { el.style.display = 'block'; el.classList.add('active'); }
+}
+
+// ── KPIs ──
+
+async function renderKPIs() {
+  const kpis = await query(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
+      SUM(CASE WHEN status = 'Pending Approval' THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN is_tiny_url = 'True' THEN 1 ELSE 0 END) as tiny,
+      COUNT(DISTINCT requestor) as requestors,
+      COUNT(DISTINCT owner_1) as owners,
+      MIN(created) as earliest,
+      MAX(created) as latest
+    FROM 'murl.parquet'
+  `);
+  const k = kpis[0];
+  const grid = document.getElementById('kpiGrid');
+  const items = [
+    { label: 'Total MURLs', value: fmt(k.total) },
+    { label: 'Active', value: fmt(k.active), sub: pct(k.active, k.total) },
+    { label: 'Pending Approval', value: fmt(k.pending), sub: pct(k.pending, k.total) },
+    { label: 'Tiny URLs', value: fmt(k.tiny), sub: pct(k.tiny, k.total) },
+    { label: 'Unique Requestors', value: fmt(k.requestors) },
+    { label: 'Unique Owners', value: fmt(k.owners) },
+    { label: 'Earliest MURL', value: k.earliest || '-' },
+    { label: 'Latest MURL', value: k.latest || '-' },
+  ];
+  grid.innerHTML = items.map(i => `
+    <div class="kpi-card">
+      <div class="kpi-label">${i.label}</div>
+      <div class="kpi-value">${i.value}</div>
+      ${i.sub ? `<div class="kpi-sub">${i.sub}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// ── Charts ──
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+async function renderTimeline() {
+  const data = await query(`
+    SELECT
+      STRFTIME(TRY_CAST(SUBSTRING(created, 7, 4) || '-' || SUBSTRING(created, 4, 2) || '-01' AS DATE), '%Y-%m') as month,
+      COUNT(*) as cnt
+    FROM 'murl.parquet'
+    WHERE created IS NOT NULL AND LENGTH(created) >= 10
+    GROUP BY month
+    ORDER BY month
+  `);
+  destroyChart('timeline');
+  charts.timeline = new Chart(document.getElementById('chartTimeline'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.month),
+      datasets: [{ label: 'MURLs Created', data: data.map(d => Number(d.cnt)), backgroundColor: '#E60000', borderRadius: 3 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 45, font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: '#ECEBE4' } }
+      }
+    }
+  });
+}
+
+async function renderDoughnut(id, canvasId, sql, colorMap) {
+  const data = await query(sql);
+  destroyChart(id);
+  const labels = data.map(d => d.label || '(empty)');
+  const values = data.map(d => Number(d.cnt));
+  const colors = colorMap
+    ? labels.map(l => colorMap[l] || CHART_PALETTE[labels.indexOf(l) % CHART_PALETTE.length])
+    : labels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]);
+
+  charts[id] = new Chart(document.getElementById(canvasId), {
+    type: 'doughnut',
+    data: {
+      labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 1, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 11 }, generateLabels: (chart) => {
+          const ds = chart.data.datasets[0];
+          const total = ds.data.reduce((a, b) => a + b, 0);
+          return chart.data.labels.map((l, i) => ({
+            text: `${l}  ${fmt(ds.data[i])} (${(ds.data[i]/total*100).toFixed(1)}%)`,
+            fillStyle: ds.backgroundColor[i],
+            hidden: false, index: i
+          }));
+        }}}
+      }
+    }
+  });
+}
+
+async function renderBarH(id, canvasId, sql) {
+  const data = await query(sql);
+  destroyChart(id);
+  charts[id] = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.label || '(empty)'),
+      datasets: [{ data: data.map(d => Number(d.cnt)), backgroundColor: '#AF8626', borderRadius: 3 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: '#ECEBE4' } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+async function renderOverviewCharts() {
+  await renderTimeline();
+  await renderDoughnut('status', 'chartStatus',
+    `SELECT COALESCE(status, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC`,
+    STATUS_COLORS
+  );
+  await renderDoughnut('tiny', 'chartTiny',
+    `SELECT CASE WHEN is_tiny_url = 'True' THEN 'Tiny URL' ELSE 'Standard' END as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC`,
+    { 'Tiny URL': '#00759E', 'Standard': '#CCCABC' }
+  );
+}
+
+async function renderBreakdownCharts() {
+  await renderBarH('requestors', 'chartRequestors',
+    `SELECT COALESCE(requestor, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 15`
+  );
+  await renderBarH('owners', 'chartOwners',
+    `SELECT COALESCE(owner_1, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 15`
+  );
+  await renderDoughnut('domains', 'chartDomains',
+    `SELECT COALESCE(domain, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 10`,
+    null
+  );
+  await renderDoughnut('regions', 'chartRegions',
+    `SELECT COALESCE(region, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 10`,
+    null
+  );
+  await renderDoughnut('activation', 'chartActivation',
+    `SELECT COALESCE(activation, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC`,
+    null
+  );
+  await renderDoughnut('communication', 'chartCommunication',
+    `SELECT COALESCE(communication, '(empty)') as label, COUNT(*) as cnt FROM 'murl.parquet' GROUP BY label ORDER BY cnt DESC LIMIT 10`,
+    null
+  );
+}
+
+// ── Data Table ──
+
+async function loadTableData() {
+  allData = await query(`SELECT * FROM 'murl.parquet' ORDER BY id DESC`);
+  filteredData = [...allData];
+
+  const statuses = [...new Set(allData.map(d => d.status).filter(Boolean))].sort();
+  const domains = [...new Set(allData.map(d => d.domain).filter(Boolean))].sort();
+
+  const fStatus = document.getElementById('filterStatus');
+  statuses.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; fStatus.appendChild(o); });
+
+  const fDomain = document.getElementById('filterDomain');
+  domains.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; fDomain.appendChild(o); });
+
+  document.getElementById('tableSearch').addEventListener('input', applyFilters);
+  renderTable();
+}
+
+function applyFilters() {
+  const search = document.getElementById('tableSearch').value.toLowerCase();
+  const status = document.getElementById('filterStatus').value;
+  const domain = document.getElementById('filterDomain').value;
+  const tiny = document.getElementById('filterTiny').value;
+
+  filteredData = allData.filter(row => {
+    if (status && row.status !== status) return false;
+    if (domain && row.domain !== domain) return false;
+    if (tiny && row.is_tiny_url !== tiny) return false;
+    if (search) {
+      const haystack = [row.id, row.murl_name, row.target_url, row.requestor, row.owner_1, row.owner_2, row.description]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+  renderTable();
+}
+
+function clearFilters() {
+  document.getElementById('tableSearch').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterDomain').value = '';
+  document.getElementById('filterTiny').value = '';
+  filteredData = [...allData];
+  renderTable();
+}
+
+function sortTable(col) {
+  if (sortCol === col) { sortAsc = !sortAsc; }
+  else { sortCol = col; sortAsc = true; }
+  filteredData.sort((a, b) => {
+    let va = a[col] || '', vb = b[col] || '';
+    if (!isNaN(va) && !isNaN(vb)) { va = Number(va); vb = Number(vb); }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+  renderTable();
+}
+
+const TABLE_COLS = [
+  { key: 'id', label: 'ID' },
+  { key: 'murl_name', label: 'MURL Name' },
+  { key: 'target_url', label: 'Target URL' },
+  { key: 'is_tiny_url', label: 'Tiny' },
+  { key: 'requestor', label: 'Requestor' },
+  { key: 'created', label: 'Created' },
+  { key: 'expiration', label: 'Expiration' },
+  { key: 'owner_1', label: 'Owner 1' },
+  { key: 'owner_2', label: 'Owner 2' },
+  { key: 'status', label: 'Status' },
+];
+
+function statusBadge(val) {
+  if (!val) return '';
+  const cls = val === 'Active' ? 'badge-active' : val.includes('Pending') ? 'badge-pending' : 'badge-closed';
+  return `<span class="badge ${cls}">${val}</span>`;
+}
+
+function renderTable() {
+  const maxRows = 500;
+  const display = filteredData.slice(0, maxRows);
+  const arrow = col => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
+
+  let html = '<table><thead><tr>';
+  TABLE_COLS.forEach(c => {
+    html += `<th onclick="sortTable('${c.key}')">${c.label}<span class="sort-arrow">${arrow(c.key)}</span></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  display.forEach(row => {
+    html += '<tr>';
+    TABLE_COLS.forEach(c => {
+      let val = row[c.key] || '';
+      if (c.key === 'status') val = statusBadge(val);
+      else if (c.key === 'target_url' && val) val = `<a href="${val}" target="_blank" style="color:#0C7EC6;">${val}</a>`;
+      html += `<td>${val}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('tableScroll').innerHTML = html;
+  const showing = filteredData.length > maxRows ? `Showing ${maxRows} of ${fmt(filteredData.length)}` : `${fmt(filteredData.length)}`;
+  document.getElementById('tableCount').textContent = `${showing} records (${fmt(allData.length)} total)`;
+}
+
+// ── CSV Export ──
+
+function exportCSV() {
+  const cols = TABLE_COLS;
+  const header = cols.map(c => c.label).join(',');
+  const rows = filteredData.map(row =>
+    cols.map(c => {
+      let v = row[c.key] || '';
+      v = String(v).replace(/"/g, '""');
+      return `"${v}"`;
+    }).join(',')
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `murl_export_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+// ── Helpers ──
+
+function fmt(n) { return n == null ? '-' : Number(n).toLocaleString(); }
+function pct(n, total) { return total ? (n / total * 100).toFixed(1) + '%' : '-'; }
+
+// ── Init ──
+
+async function init() {
+  try {
+    await initDuckDB();
+    await loadParquet();
+
+    document.getElementById('loadingOverlay').style.display = 'none';
+    document.getElementById('tab-overview').style.display = 'block';
+
+    const countResult = await query(`SELECT COUNT(*) as cnt FROM 'murl.parquet'`);
+    document.getElementById('recordCount').textContent = `${fmt(countResult[0].cnt)} records`;
+    document.getElementById('statusIndicator').innerHTML = '<span class="status-dot ok"></span> Ready';
+
+    await Promise.allSettled([
+      renderKPIs(),
+      renderOverviewCharts(),
+      renderBreakdownCharts(),
+      loadTableData(),
+    ]);
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById('loadingOverlay').innerHTML = `
+      <div style="color:var(--danger);font-size:0.9rem;text-align:center;">
+        <div style="font-weight:600;margin-bottom:0.5rem;">Failed to load data</div>
+        <div>${e.message}</div>
+        <div style="margin-top:0.5rem;color:var(--medium-gray);">Run <code>python main.py</code> to generate the Parquet file.</div>
+      </div>`;
+    document.getElementById('statusIndicator').innerHTML = '<span class="status-dot error"></span> Error';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
