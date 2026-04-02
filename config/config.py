@@ -36,6 +36,11 @@ FIELD_MAPPING = {
     "domain": {"source": "fields", "field": "customfield_13707", "subfield": "value"},
     "business_division": {"source": "fields", "field": "customfield_10019", "subfield": "value"},
     "region": {"source": "fields", "field": "customfield_13725", "subfield": "value"},
+    "communication": {"source": "fields", "field": "customfield_13722", "subfield": "value"},
+    "language_selection": {"source": "fields", "field": "customfield_13709", "subfield": "value"},
+    "assignee": {"source": "fields", "field": "assignee", "subfield": "displayName"},
+    "reporter": {"source": "fields", "field": "reporter", "subfield": "displayName"},
+    "resolution": {"source": "fields", "field": "resolution", "subfield": "name"},
     "description": {"source": "fields", "field": "description"},
 }
 
@@ -55,5 +60,10 @@ XLSX_COLUMNS = [
     ("Domain", "domain"),
     ("Business Division", "business_division"),
     ("Region", "region"),
+    ("Communication", "communication"),
+    ("Language", "language_selection"),
+    ("Assignee", "assignee"),
+    ("Reporter", "reporter"),
+    ("Resolution", "resolution"),
     ("Description", "description"),
 ]
