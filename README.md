@@ -23,8 +23,16 @@ Jira Service Desk API
 ```bash
 pip install -r requirements.txt
 cp config/.env.example config/.env
-# Edit config/.env with your Jira Personal Access Token
+# Edit config/.env with your Jira Base URL and Personal Access Token
 ```
+
+### Creating a Personal Access Token
+
+1. Open your Jira instance in the browser
+2. Navigate to **Profile** → `<JIRA_BASE_URL>/secure/ViewProfile.jspa`
+3. Go to **Personal Access Tokens**
+4. Click **Create Token**, give it a name (e.g. `MURL Pipeline`)
+5. Copy the token and paste it into `config/.env`
 
 ### Environment Variables
 
