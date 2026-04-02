@@ -4,7 +4,7 @@ from tqdm import tqdm
 from config.config import JIRA_BASE_URL, JIRA_TOKEN, JIRA_REQUEST_TYPE_ID, JIRA_PAGE_LIMIT, ESTIMATED_TOTAL
 
 
-def extract_all(limit: int | None = None) -> list[dict]:
+def extract_all(limit: int | None = None, start_offset: int = 0) -> list[dict]:
     """Extract all MURL requests from Jira Service Desk API with pagination."""
     session = requests.Session()
     session.headers.update({
@@ -14,8 +14,8 @@ def extract_all(limit: int | None = None) -> list[dict]:
 
     url = f"{JIRA_BASE_URL}/rest/servicedeskapi/request"
     all_values = []
-    start = 0
-    retries_max = 3
+    start = start_offset
+    retries_max = 5
     pbar = None
 
     while True:
@@ -28,7 +28,7 @@ def extract_all(limit: int | None = None) -> list[dict]:
 
         for attempt in range(retries_max):
             try:
-                resp = session.get(url, params=params, timeout=30)
+                resp = session.get(url, params=params, timeout=120)
                 resp.raise_for_status()
                 break
             except requests.exceptions.RequestException as e:
@@ -43,7 +43,7 @@ def extract_all(limit: int | None = None) -> list[dict]:
 
         if pbar is None:
             total = limit or ESTIMATED_TOTAL
-            pbar = tqdm(total=total, desc="Extracting MURLs", unit="records")
+            pbar = tqdm(total=total, initial=start_offset, desc="Extracting MURLs", unit="records")
 
         values = data.get("values", [])
         if not values:

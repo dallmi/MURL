@@ -9,11 +9,17 @@ from scripts.load import load_to_duckdb
 from scripts.report import generate_report
 
 
-def run_extract(limit: int | None = None) -> list[dict]:
+def run_extract(limit: int | None = None, resume: bool = False) -> list[dict]:
     print("=" * 50)
     print("STEP 1: Extract from Jira API")
     print("=" * 50)
-    raw = extract_all(limit=limit)
+    existing = []
+    if resume and RAW_CACHE_PATH.exists():
+        with open(RAW_CACHE_PATH, "r", encoding="utf-8") as f:
+            existing = json.load(f)
+        print(f"Resuming from {len(existing)} cached records")
+    raw = extract_all(limit=limit, start_offset=len(existing))
+    raw = existing + raw
     INPUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(RAW_CACHE_PATH, "w", encoding="utf-8") as f:
         json.dump(raw, f, ensure_ascii=False)
@@ -61,6 +67,8 @@ def main():
                         help="Run a specific step only")
     parser.add_argument("--limit", type=int, default=None,
                         help="Limit number of records to extract (for testing)")
+    parser.add_argument("--resume", action="store_true",
+                        help="Resume extraction from cached data after a failure")
     args = parser.parse_args()
 
     if not JIRA_TOKEN:
@@ -68,7 +76,7 @@ def main():
         return
 
     if args.step == "extract":
-        run_extract(limit=args.limit)
+        run_extract(limit=args.limit, resume=args.resume)
     elif args.step == "transform":
         records = run_transform()
         print(f"Result: {len(records)} records (not loaded)")
@@ -78,7 +86,7 @@ def main():
     elif args.step == "report":
         run_report()
     else:
-        raw = run_extract(limit=args.limit)
+        raw = run_extract(limit=args.limit, resume=args.resume)
         records = run_transform(raw)
         run_load(records)
         run_report(records)
