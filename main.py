@@ -2,7 +2,7 @@ import argparse
 import json
 from pathlib import Path
 
-from config.config import INPUT_DIR, OUTPUT_DIR, JIRA_TOKEN, RAW_CACHE_PATH
+from config.config import OUTPUT_DIR, JIRA_TOKEN, RAW_CACHE_PATH
 from scripts.extract import extract_all
 from scripts.transform import transform_all
 from scripts.load import load_to_duckdb
@@ -13,18 +13,7 @@ def run_extract(limit: int | None = None, resume: bool = False) -> list[dict]:
     print("=" * 50)
     print("STEP 1: Extract from Jira API")
     print("=" * 50)
-    existing = []
-    if resume and RAW_CACHE_PATH.exists():
-        with open(RAW_CACHE_PATH, "r", encoding="utf-8") as f:
-            existing = json.load(f)
-        print(f"Resuming from {len(existing)} cached records")
-    raw = extract_all(limit=limit, start_offset=len(existing))
-    raw = existing + raw
-    INPUT_DIR.mkdir(parents=True, exist_ok=True)
-    with open(RAW_CACHE_PATH, "w", encoding="utf-8") as f:
-        json.dump(raw, f, ensure_ascii=False)
-    print(f"Raw data cached: {RAW_CACHE_PATH}")
-    return raw
+    return extract_all(limit=limit, resume=resume)
 
 
 def run_transform(raw: list[dict] | None = None) -> list[dict]:
