@@ -3,8 +3,8 @@ import time
 import requests
 from tqdm import tqdm
 from config.config import (
-    JIRA_BASE_URL, JIRA_TOKEN, JIRA_REQUEST_TYPE_ID, JIRA_REQUEST_TYPE_NAME,
-    JIRA_PAGE_LIMIT, ESTIMATED_TOTAL, RAW_CACHE_PATH, INPUT_DIR,
+    JIRA_BASE_URL, JIRA_TOKEN, JIRA_JQL,
+    JIRA_PAGE_LIMIT, RAW_CACHE_PATH, INPUT_DIR,
 )
 
 
@@ -38,10 +38,10 @@ def load_cache() -> list[dict]:
 
 
 def extract_all(limit: int | None = None, resume: bool = False) -> list[dict]:
-    """Extract all MURL requests from Jira Service Desk API with pagination.
+    """Extract all MURL issues via Jira REST API with JQL.
 
-    Appends each page to a JSONL cache. On failure, use resume=True
-    to continue from where it left off.
+    Uses /rest/api/2/search with JQL for precise filtering.
+    Appends each page to a JSONL cache.
     """
     session = requests.Session()
     session.headers.update({
@@ -58,19 +58,18 @@ def extract_all(limit: int | None = None, resume: bool = False) -> list[dict]:
         if RAW_CACHE_PATH.exists():
             RAW_CACHE_PATH.unlink()
 
-    url = f"{JIRA_BASE_URL}/rest/servicedeskapi/request"
+    url = f"{JIRA_BASE_URL}/rest/api/2/search"
     start = cached_count
     fetched = 0
     retries_max = 5
-    total = limit or ESTIMATED_TOTAL
-    pbar = tqdm(total=total, initial=start, desc="Extracting MURLs", unit="records")
+    total = None
+    pbar = None
 
     while True:
         params = {
-            "requestTypeId": JIRA_REQUEST_TYPE_ID,
-            "start": start,
-            "limit": JIRA_PAGE_LIMIT,
-            "expand": "participant,status,requestType,serviceDesk",
+            "jql": JIRA_JQL,
+            "startAt": start,
+            "maxResults": JIRA_PAGE_LIMIT,
         }
 
         for attempt in range(retries_max):
@@ -81,39 +80,39 @@ def extract_all(limit: int | None = None, resume: bool = False) -> list[dict]:
             except requests.exceptions.RequestException as e:
                 if attempt < retries_max - 1:
                     wait = 2 ** (attempt + 1)
-                    tqdm.write(f"  Retry {attempt + 1}/{retries_max} after {wait}s: {e}")
+                    if pbar:
+                        tqdm.write(f"  Retry {attempt + 1}/{retries_max} after {wait}s: {e}")
                     time.sleep(wait)
                 else:
                     raise
 
         data = resp.json()
-        values = data.get("values", [])
-        if not values:
+
+        if pbar is None:
+            total = data.get("total", 0)
+            effective_total = min(limit, total) if limit else total
+            pbar = tqdm(total=effective_total, initial=start, desc="Extracting MURLs", unit="records")
+
+        issues = data.get("issues", [])
+        if not issues:
             break
 
-        murl_values = [
-            v for v in values
-            if v.get("requestType", {}).get("name") == JIRA_REQUEST_TYPE_NAME
-        ]
-        skipped = len(values) - len(murl_values)
-        if skipped:
-            tqdm.write(f"  Filtered out {skipped} non-MURL records")
-
-        if murl_values:
-            _append_cache(murl_values)
-        fetched += len(murl_values)
-        pbar.update(len(values))
+        _append_cache(issues)
+        fetched += len(issues)
+        pbar.update(len(issues))
 
         if limit and (cached_count + fetched) >= limit:
             break
 
-        if data.get("isLastPage", True):
+        if (start + len(issues)) >= total:
             break
 
         start += JIRA_PAGE_LIMIT
         time.sleep(0.2)
 
-    pbar.close()
+    if pbar:
+        pbar.close()
+
     total_records = cached_count + fetched
     print(f"Extraction complete: {total_records} records")
     return load_cache()[:limit] if limit else load_cache()
