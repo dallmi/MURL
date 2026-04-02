@@ -8,25 +8,39 @@ from config.config import (
 )
 
 
-def _save_cache(records: list[dict]) -> None:
-    """Save records to cache file."""
+def _count_cached() -> int:
+    """Count lines in JSONL cache."""
+    if not RAW_CACHE_PATH.exists():
+        return 0
+    with open(RAW_CACHE_PATH, "r", encoding="utf-8") as f:
+        return sum(1 for _ in f)
+
+
+def _append_cache(records: list[dict]) -> None:
+    """Append records to JSONL cache (one JSON object per line)."""
     INPUT_DIR.mkdir(parents=True, exist_ok=True)
-    with open(RAW_CACHE_PATH, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False)
+    with open(RAW_CACHE_PATH, "a", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
-def _load_cache() -> list[dict]:
-    """Load records from cache file."""
-    if RAW_CACHE_PATH.exists():
-        with open(RAW_CACHE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
+def load_cache() -> list[dict]:
+    """Load all records from JSONL cache."""
+    if not RAW_CACHE_PATH.exists():
+        return []
+    records = []
+    with open(RAW_CACHE_PATH, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                records.append(json.loads(line))
+    return records
 
 
 def extract_all(limit: int | None = None, resume: bool = False) -> list[dict]:
     """Extract all MURL requests from Jira Service Desk API with pagination.
 
-    Saves progress to cache after every page. On failure, use resume=True
+    Appends each page to a JSONL cache. On failure, use resume=True
     to continue from where it left off.
     """
     session = requests.Session()
@@ -35,14 +49,18 @@ def extract_all(limit: int | None = None, resume: bool = False) -> list[dict]:
         "Accept": "application/json",
     })
 
-    all_values = []
+    cached_count = 0
     if resume:
-        all_values = _load_cache()
-        if all_values:
-            print(f"Resuming from {len(all_values)} cached records")
+        cached_count = _count_cached()
+        if cached_count:
+            print(f"Resuming from {cached_count} cached records")
+    else:
+        if RAW_CACHE_PATH.exists():
+            RAW_CACHE_PATH.unlink()
 
     url = f"{JIRA_BASE_URL}/rest/servicedeskapi/request"
-    start = len(all_values)
+    start = cached_count
+    fetched = 0
     retries_max = 5
     total = limit or ESTIMATED_TOTAL
     pbar = tqdm(total=total, initial=start, desc="Extracting MURLs", unit="records")
@@ -66,29 +84,27 @@ def extract_all(limit: int | None = None, resume: bool = False) -> list[dict]:
                     tqdm.write(f"  Retry {attempt + 1}/{retries_max} after {wait}s: {e}")
                     time.sleep(wait)
                 else:
-                    _save_cache(all_values)
-                    tqdm.write(f"  Saved {len(all_values)} records to cache before failure")
                     raise
 
-        values = resp.json().get("values", [])
+        data = resp.json()
+        values = data.get("values", [])
         if not values:
             break
 
-        all_values.extend(values)
+        _append_cache(values)
+        fetched += len(values)
         pbar.update(len(values))
-        _save_cache(all_values)
 
-        if limit and len(all_values) >= limit:
-            all_values = all_values[:limit]
+        if limit and (cached_count + fetched) >= limit:
             break
 
-        if resp.json().get("isLastPage", True):
+        if data.get("isLastPage", True):
             break
 
         start += JIRA_PAGE_LIMIT
         time.sleep(0.2)
 
     pbar.close()
-    _save_cache(all_values)
-    print(f"Extraction complete: {len(all_values)} records")
-    return all_values
+    total_records = cached_count + fetched
+    print(f"Extraction complete: {total_records} records")
+    return load_cache()[:limit] if limit else load_cache()

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from config.config import OUTPUT_DIR, JIRA_TOKEN, RAW_CACHE_PATH
-from scripts.extract import extract_all
+from scripts.extract import extract_all, load_cache
 from scripts.transform import transform_all
 from scripts.load import load_to_duckdb
 from scripts.report import generate_report
@@ -21,8 +21,7 @@ def run_transform(raw: list[dict] | None = None) -> list[dict]:
     print("STEP 2: Transform")
     print("=" * 50)
     if raw is None:
-        with open(RAW_CACHE_PATH, "r", encoding="utf-8") as f:
-            raw = json.load(f)
+        raw = load_cache()
         print(f"Loaded {len(raw)} records from cache")
     return transform_all(raw)
 

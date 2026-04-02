@@ -14,7 +14,7 @@ JIRA_PORTAL_ID = 11
 JIRA_PAGE_LIMIT = 100
 ESTIMATED_TOTAL = 18116
 
-RAW_CACHE_PATH = INPUT_DIR / "raw_extract.json"
+RAW_CACHE_PATH = INPUT_DIR / "raw_extract.jsonl"
 DUCKDB_PATH = OUTPUT_DIR / "murl.duckdb"
 PARQUET_PATH = OUTPUT_DIR / "murl.parquet"
 XLSX_PATH = OUTPUT_DIR / "murl_report.xlsx"
