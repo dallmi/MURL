@@ -3,7 +3,7 @@ import time
 import requests
 from tqdm import tqdm
 from config.config import (
-    JIRA_BASE_URL, JIRA_TOKEN, JIRA_REQUEST_TYPE_ID,
+    JIRA_BASE_URL, JIRA_TOKEN, JIRA_REQUEST_TYPE_ID, JIRA_REQUEST_TYPE_NAME,
     JIRA_PAGE_LIMIT, ESTIMATED_TOTAL, RAW_CACHE_PATH, INPUT_DIR,
 )
 
@@ -91,8 +91,17 @@ def extract_all(limit: int | None = None, resume: bool = False) -> list[dict]:
         if not values:
             break
 
-        _append_cache(values)
-        fetched += len(values)
+        murl_values = [
+            v for v in values
+            if v.get("requestType", {}).get("name") == JIRA_REQUEST_TYPE_NAME
+        ]
+        skipped = len(values) - len(murl_values)
+        if skipped:
+            tqdm.write(f"  Filtered out {skipped} non-MURL records")
+
+        if murl_values:
+            _append_cache(murl_values)
+        fetched += len(murl_values)
         pbar.update(len(values))
 
         if limit and (cached_count + fetched) >= limit:
