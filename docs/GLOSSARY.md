@@ -98,4 +98,4 @@ Complete reference of all fields returned by the Jira Service Desk API for MURL 
 - User fields (`Owner 1`, `Owner 2`, `Requested For`, `Business Contact`) return nested objects with `displayName`, `emailAddress`, `key`, `active`, `timeZone`.
 - Select fields return objects with `value` and sometimes `id`.
 - Multi-select fields return arrays of value objects.
-- Field IDs were identified from API response screenshots and need validation after first live run.
+- Field IDs need validation after first live run.

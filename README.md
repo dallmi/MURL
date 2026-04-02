@@ -89,6 +89,6 @@ ID, MURL Name, Target URLs (Default + 10 languages), Is Tiny URL, Requester, Req
 
 ## Notes
 
-- The field mapping in `config/config.py` is based on screenshots of the API response and needs validation after the first real run.
+- The field mapping in `config/config.py` needs validation after the first real run.
 - The `.env` file must be placed in `config/` (not project root).
 - Runs on the corporate machine where Jira is accessible.
