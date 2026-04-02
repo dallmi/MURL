@@ -7,6 +7,10 @@ from config.config import XLSX_PATH, XLSX_COLUMNS, OUTPUT_DIR
 HEADER_FILL = PatternFill(start_color="404040", end_color="404040", fill_type="solid")
 HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF", size=10)
 HEADER_ALIGNMENT = Alignment(horizontal="left", vertical="center", wrap_text=True)
+HEADER_BORDER = Border(
+    bottom=Side(style="thin", color="E60000"),
+    right=Side(style="thin", color="CCCABC"),
+)
 CELL_FONT = Font(name="Arial", size=10)
 CELL_ALIGNMENT = Alignment(horizontal="left", vertical="top", wrap_text=False)
 BORDER = Border(
@@ -32,7 +36,7 @@ def generate_report(records: list[dict]) -> None:
         cell.fill = HEADER_FILL
         cell.font = HEADER_FONT
         cell.alignment = HEADER_ALIGNMENT
-        cell.border = BORDER
+        cell.border = HEADER_BORDER
 
     for row_idx, record in enumerate(records, 2):
         is_alt = row_idx % 2 == 0
