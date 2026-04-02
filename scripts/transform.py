@@ -71,10 +71,14 @@ def transform_record(raw: dict) -> dict:
         elif source == "fields":
             field = mapping["field"]
             raw_value = fields.get(field)
-            subfield = mapping.get("subfield")
-            value = _extract_value(raw_value, subfield)
-            if mapping.get("type") == "date":
-                value = _parse_date(raw_value)
+            transform = mapping.get("transform")
+            if transform == "boolean_not_null":
+                value = "True" if raw_value is not None else "False"
+            else:
+                subfield = mapping.get("subfield")
+                value = _extract_value(raw_value, subfield)
+                if mapping.get("type") == "date":
+                    value = _parse_date(raw_value)
 
         record[key] = value
 
