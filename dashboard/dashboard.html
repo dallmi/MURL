@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
 <title>MURL Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -223,6 +224,56 @@ const CHART_PALETTE = [
 ];
 const STATUS_COLORS = { 'Active':'#6F7A1A', 'Pending Approval':'#E4A911', 'Closed':'#7A7870', 'Declined':'#BD000C' };
 
+const barLabelPlugin = {
+  id: 'barLabels',
+  afterDatasetsDraw(chart, args, options) {
+    const { ctx } = chart;
+    const horizontal = options.horizontal || false;
+    const minBarSize = options.minBarSize || 25;
+    chart.data.datasets.forEach((dataset, dsIdx) => {
+      const meta = chart.getDatasetMeta(dsIdx);
+      if (meta.hidden) return;
+      const total = dataset.data.reduce((a, b) => a + b, 0);
+      meta.data.forEach((bar, idx) => {
+        const value = dataset.data[idx];
+        if (!value) return;
+        const pct = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '';
+        const countStr = value.toLocaleString();
+        ctx.save();
+        if (horizontal) {
+          const barWidth = Math.abs(bar.x - bar.base);
+          if (barWidth > 50) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '11px -apple-system, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(pct, bar.x - 6, bar.y);
+          }
+          ctx.fillStyle = '#5A5D5C';
+          ctx.font = '11px -apple-system, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(countStr, bar.x + 6, bar.y);
+        } else {
+          const barHeight = Math.abs(bar.y - bar.base);
+          if (barHeight < minBarSize) { ctx.restore(); return; }
+          ctx.fillStyle = '#5A5D5C';
+          ctx.font = '11px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(countStr, bar.x, bar.y - 4);
+          if (barHeight > 40) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textBaseline = 'top';
+            ctx.fillText(pct, bar.x, bar.y + 4);
+          }
+        }
+        ctx.restore();
+      });
+    });
+  }
+};
+
 let db = null, conn = null, charts = {};
 let allData = [], filteredData = [];
 let sortCol = 'id', sortAsc = false;
@@ -299,7 +350,7 @@ async function initDuckDB() {
   if (!window.duckdb) {
     await Promise.race([
       new Promise(r => window.addEventListener('duckdb-ready', r, { once: true })),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('DuckDB load timeout')), 15000))
+      new Promise((_, rej) => setTimeout(() => rej(new Error('DuckDB load timeout')), 30000))
     ]);
   }
   const m = window.duckdb;
@@ -335,6 +386,7 @@ async function query(sql) {
     for (const key of Object.keys(row)) {
       let v = row[key];
       if (v !== null && typeof v === 'object' && typeof v.toString === 'function' && !(v instanceof Date)) v = v.toString();
+      if (typeof v === 'bigint') v = Number(v);
       obj[key] = v;
     }
     return obj;
@@ -395,7 +447,8 @@ async function renderOverviewCharts() {
   charts.timeline = new Chart(document.getElementById('chartTimeline'), {
     type:'bar',
     data:{ labels:timeline.map(d=>d.month), datasets:[{label:'MURLs Created',data:timeline.map(d=>Number(d.cnt)),backgroundColor:'#E60000',borderRadius:3}] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+    plugins:[barLabelPlugin],
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},barLabels:{horizontal:false,minBarSize:25}},
       scales:{ x:{grid:{display:false},ticks:{maxRotation:45,font:{size:10}}}, y:{beginAtZero:true,grid:{color:'#ECEBE4'}} } }
   });
 
@@ -462,9 +515,11 @@ async function renderDoughnut(id, canvasId, sql, colorMap) {
   destroyChart(id);
   const labels = data.map(d=>d.label||'(empty)');
   const values = data.map(d=>Number(d.cnt));
-  const colors = colorMap
-    ? labels.map(l=>colorMap[l]||CHART_PALETTE[labels.indexOf(l)%CHART_PALETTE.length])
-    : labels.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]);
+  const colors = labels.map((l, i) => {
+    if (l === '(empty)' || l === '(unknown)' || l === '(unassigned)') return '#CCCABC40';
+    if (colorMap && colorMap[l]) return colorMap[l];
+    return CHART_PALETTE[i % CHART_PALETTE.length];
+  });
   charts[id] = new Chart(document.getElementById(canvasId), {
     type:'doughnut',
     data:{ labels, datasets:[{data:values,backgroundColor:colors,borderWidth:1,borderColor:'#fff'}] },
@@ -483,8 +538,9 @@ async function renderBarH(id, canvasId, sql) {
   charts[id] = new Chart(document.getElementById(canvasId), {
     type:'bar',
     data:{ labels:data.map(d=>d.label||'(empty)'), datasets:[{data:data.map(d=>Number(d.cnt)),backgroundColor:'#AF8626',borderRadius:3}] },
+    plugins:[barLabelPlugin],
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      plugins:{legend:{display:false},barLabels:{horizontal:true}},
       scales:{ x:{beginAtZero:true,grid:{color:'#ECEBE4'}}, y:{grid:{display:false},ticks:{font:{size:10}}} } }
   });
 }
