@@ -66,8 +66,14 @@ body {
 
 /* KPI Cards */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
-.kpi-card { background: var(--white); border-radius: 6px; padding: 0.85rem 1rem; border: 1px solid var(--lighter-gray); transition: box-shadow 0.15s, transform 0.15s; }
+.kpi-card { background: var(--white); border-radius: 6px; padding: 0.85rem 1rem; border: 1px solid var(--lighter-gray); transition: box-shadow 0.15s, transform 0.15s; position: relative; overflow: hidden; }
 .kpi-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); transform: translateY(-1px); }
+.kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 6px 6px 0 0; }
+.kpi-card.highlight::before { background: var(--primary); }
+.kpi-card.success::before { background: var(--success); }
+.kpi-card.warning::before { background: var(--warning); }
+.kpi-card.danger::before { background: var(--danger); }
+.kpi-card.info::before { background: #8E8D83; }
 .kpi-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--medium-gray); margin-bottom: 0.25rem; }
 .kpi-value { font-size: 1.5rem; font-weight: 700; color: var(--black); }
 .kpi-sub { font-size: 0.7rem; color: var(--medium-gray); margin-top: 0.15rem; }
@@ -422,13 +428,13 @@ async function renderKPIs() {
     FROM 'murl.parquet' ${w}
   `))[0];
   document.getElementById('kpiGrid').innerHTML = [
-    { l:'Total MURLs', v:fmt(k.total) },
-    { l:'Active', v:fmt(k.active), s:pct(k.active,k.total) },
-    { l:'Pending', v:fmt(k.pending), s:pct(k.pending,k.total) },
-    { l:'Tiny URLs', v:fmt(k.tiny), s:pct(k.tiny,k.total) },
-    { l:'Unique Requestors', v:fmt(k.requestors) },
-    { l:'Unique Owners', v:fmt(k.owners) },
-  ].map(i=>`<div class="kpi-card"><div class="kpi-label">${i.l}</div><div class="kpi-value">${i.v}</div>${i.s?`<div class="kpi-sub">${i.s}</div>`:''}</div>`).join('');
+    { l:'Total MURLs', v:fmt(k.total), c:'highlight' },
+    { l:'Active', v:fmt(k.active), s:pct(k.active,k.total), c:'success' },
+    { l:'Pending', v:fmt(k.pending), s:pct(k.pending,k.total), c:'warning' },
+    { l:'Tiny URLs', v:fmt(k.tiny), s:pct(k.tiny,k.total), c:'info' },
+    { l:'Unique Requestors', v:fmt(k.requestors), c:'info' },
+    { l:'Unique Owners', v:fmt(k.owners), c:'info' },
+  ].map(i=>`<div class="kpi-card ${i.c||''}"><div class="kpi-label">${i.l}</div><div class="kpi-value">${i.v}</div>${i.s?`<div class="kpi-sub">${i.s}</div>`:''}</div>`).join('');
 }
 
 // ── Charts ──
@@ -480,10 +486,10 @@ async function renderLifecycle() {
     FROM 'murl.parquet' ${w}
   `))[0];
   document.getElementById('lifecycleKpis').innerHTML = [
-    { l:'Stale >1 Year', v:fmt(lk.stale_1y), s:'Active, not updated in 1y+' },
-    { l:'Stale >2 Years', v:fmt(lk.stale_2y), s:'Active, not updated in 2y+' },
-    { l:'Has Expiration', v:fmt(lk.has_expiration), s:pct(lk.has_expiration,lk.total) },
-  ].map(i=>`<div class="kpi-card"><div class="kpi-label">${i.l}</div><div class="kpi-value">${i.v}</div>${i.s?`<div class="kpi-sub">${i.s}</div>`:''}</div>`).join('');
+    { l:'Stale >1 Year', v:fmt(lk.stale_1y), s:'Active, not updated in 1y+', c:'warning' },
+    { l:'Stale >2 Years', v:fmt(lk.stale_2y), s:'Active, not updated in 2y+', c:'danger' },
+    { l:'Has Expiration', v:fmt(lk.has_expiration), s:pct(lk.has_expiration,lk.total), c:'info' },
+  ].map(i=>`<div class="kpi-card ${i.c||''}"><div class="kpi-label">${i.l}</div><div class="kpi-value">${i.v}</div>${i.s?`<div class="kpi-sub">${i.s}</div>`:''}</div>`).join('');
 
   // Owners
   await renderBarH('owners','chartOwners',
