@@ -595,27 +595,43 @@ async function exportXLSX() {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('MURL Export');
   const cols = TABLE_COLS;
+  const LINK_COLS = new Set(['target_url', 'target_italian']);
+
+  // Header row
   const headerRow = ws.addRow(cols.map(c=>c.label));
+  headerRow.height = 30;
   headerRow.eachCell(cell=>{
     cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF404040'}};
     cell.font={name:'Arial',bold:true,color:{argb:'FFFFFFFF'},size:10};
-    cell.alignment={horizontal:'left',vertical:'middle'};
+    cell.alignment={horizontal:'left',vertical:'middle',wrapText:true};
     cell.border={bottom:{style:'medium',color:{argb:'FFE60000'}},right:{style:'thin',color:{argb:'FFCCCABC'}}};
   });
+
+  // Data rows
   filteredData.forEach((row,idx)=>{
     const dr=ws.addRow(cols.map(c=>row[c.key]||''));
-    dr.eachCell(cell=>{
+    dr.eachCell((cell,colIdx)=>{
+      const colKey = cols[colIdx-1].key;
+      const val = row[colKey] || '';
       cell.font={name:'Arial',size:10};
-      cell.alignment={horizontal:'left',vertical:'top'};
+      cell.alignment={horizontal:'left',vertical:'top',wrapText:true};
       cell.border={bottom:{style:'thin',color:{argb:'FFCCCABC'}},right:{style:'thin',color:{argb:'FFCCCABC'}}};
       if(idx%2===0) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF8F7F2'}};
+      // Hyperlinks for URL columns
+      if(LINK_COLS.has(colKey) && val && val.startsWith('http')){
+        cell.value={text:val,hyperlink:val};
+        cell.font={name:'Arial',size:10,color:{argb:'FF0C7EC6'},underline:true};
+      }
     });
   });
+
+  // Column widths
   cols.forEach((c,i)=>{
     let mx=c.label.length;
     filteredData.slice(0,100).forEach(r=>{mx=Math.max(mx,String(r[c.key]||'').length);});
     ws.getColumn(i+1).width=Math.min(mx+2,50);
   });
+
   ws.views=[{state:'frozen',ySplit:1}];
   ws.autoFilter={from:{row:1,column:1},to:{row:1,column:cols.length}};
   const buffer=await wb.xlsx.writeBuffer();

@@ -12,12 +12,15 @@ HEADER_BORDER = Border(
     right=Side(style="thin", color="CCCABC"),
 )
 CELL_FONT = Font(name="Arial", size=10)
-CELL_ALIGNMENT = Alignment(horizontal="left", vertical="top", wrap_text=False)
+CELL_ALIGNMENT = Alignment(horizontal="left", vertical="top", wrap_text=True)
+LINK_FONT = Font(name="Arial", size=10, color="0C7EC6", underline="single")
 BORDER = Border(
     bottom=Side(style="thin", color="CCCABC"),
     right=Side(style="thin", color="CCCABC"),
 )
 ALT_ROW_FILL = PatternFill(start_color="F8F7F2", end_color="F8F7F2", fill_type="solid")
+
+LINK_COLUMNS = {"target_url", "target_italian"}
 
 
 def generate_report(records: list[dict]) -> None:
@@ -31,6 +34,8 @@ def generate_report(records: list[dict]) -> None:
     headers = [col[0] for col in XLSX_COLUMNS]
     field_keys = [col[1] for col in XLSX_COLUMNS]
 
+    # Header row
+    ws.row_dimensions[1].height = 30
     for col_idx, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col_idx, value=header)
         cell.fill = HEADER_FILL
@@ -38,20 +43,29 @@ def generate_report(records: list[dict]) -> None:
         cell.alignment = HEADER_ALIGNMENT
         cell.border = HEADER_BORDER
 
+    # Data rows
     for row_idx, record in enumerate(records, 2):
         is_alt = row_idx % 2 == 0
         for col_idx, key in enumerate(field_keys, 1):
             value = record.get(key, "")
-            cell = ws.cell(row=row_idx, column=col_idx, value=value)
-            cell.font = CELL_FONT
+            cell = ws.cell(row=row_idx, column=col_idx)
             cell.alignment = CELL_ALIGNMENT
             cell.border = BORDER
             if is_alt:
                 cell.fill = ALT_ROW_FILL
 
+            if key in LINK_COLUMNS and value and str(value).startswith("http"):
+                cell.value = value
+                cell.hyperlink = value
+                cell.font = LINK_FONT
+            else:
+                cell.value = value
+                cell.font = CELL_FONT
+
     ws.auto_filter.ref = ws.dimensions
     ws.freeze_panes = "A2"
 
+    # Column widths
     for col_idx, key in enumerate(field_keys, 1):
         max_len = len(headers[col_idx - 1])
         for row in ws.iter_rows(min_row=2, max_row=min(len(records) + 1, 100), min_col=col_idx, max_col=col_idx):
