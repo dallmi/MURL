@@ -140,7 +140,6 @@ tbody tr:hover { background: var(--lighter-gray); }
 <div class="tabs">
   <div class="tab active" onclick="switchTab('overview')">Overview</div>
   <div class="tab" onclick="switchTab('lifecycle')">Lifecycle</div>
-  <div class="tab" onclick="switchTab('data')">Data</div>
 </div>
 
 <div class="container">
@@ -165,6 +164,20 @@ tbody tr:hover { background: var(--lighter-gray); }
         <div class="chart-title">Is Tiny URL</div>
         <div class="chart-container"><canvas id="chartTiny"></canvas></div>
       </div>
+    </div>
+
+    <!-- Data Table in Overview -->
+    <div class="table-wrapper">
+      <div class="table-header">
+        <h3>All MURLs</h3>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="text" class="table-search" id="tableSearch" placeholder="Search across all columns...">
+          <button class="btn" onclick="clearAllFilters()">Clear Filters</button>
+          <button class="btn" onclick="exportXLSX()">Export XLSX</button>
+        </div>
+      </div>
+      <div class="table-scroll" id="tableScroll"></div>
+      <div class="record-count" id="tableCount"></div>
     </div>
   </div>
 
@@ -199,21 +212,6 @@ tbody tr:hover { background: var(--lighter-gray); }
     </div>
   </div>
 
-  <!-- Data -->
-  <div id="tab-data" class="tab-content">
-    <div class="table-wrapper">
-      <div class="table-header">
-        <h3>All MURLs</h3>
-        <div style="display:flex;gap:0.5rem;align-items:center;">
-          <input type="text" class="table-search" id="tableSearch" placeholder="Search across all columns...">
-          <button class="btn" onclick="clearAllFilters()">Clear Filters</button>
-          <button class="btn" onclick="exportXLSX()">Export XLSX</button>
-        </div>
-      </div>
-      <div class="table-scroll" id="tableScroll"></div>
-      <div class="record-count" id="tableCount"></div>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -231,7 +229,7 @@ let sortCol = 'id', sortAsc = false;
 let columnFilters = {};
 let dateFilter = { from: null, to: null };
 
-const TAB_IDS = ['overview','lifecycle','data'];
+const TAB_IDS = ['overview','lifecycle'];
 
 const TABLE_COLS = [
   { key: 'id', label: 'ID', width: 70 },
