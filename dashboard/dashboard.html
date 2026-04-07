@@ -600,7 +600,7 @@ async function exportXLSX() {
     cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF404040'}};
     cell.font={name:'Arial',bold:true,color:{argb:'FFFFFFFF'},size:10};
     cell.alignment={horizontal:'left',vertical:'middle'};
-    cell.border={bottom:{style:'thin',color:{argb:'FFE60000'}},right:{style:'thin',color:{argb:'FFCCCABC'}}};
+    cell.border={bottom:{style:'medium',color:{argb:'FFE60000'}},right:{style:'thin',color:{argb:'FFCCCABC'}}};
   });
   filteredData.forEach((row,idx)=>{
     const dr=ws.addRow(cols.map(c=>row[c.key]||''));

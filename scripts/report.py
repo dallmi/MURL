@@ -8,7 +8,7 @@ HEADER_FILL = PatternFill(start_color="404040", end_color="404040", fill_type="s
 HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF", size=10)
 HEADER_ALIGNMENT = Alignment(horizontal="left", vertical="center", wrap_text=True)
 HEADER_BORDER = Border(
-    bottom=Side(style="thin", color="E60000"),
+    bottom=Side(style="medium", color="E60000"),
     right=Side(style="thin", color="CCCABC"),
 )
 CELL_FONT = Font(name="Arial", size=10)
