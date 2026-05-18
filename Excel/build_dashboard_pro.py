@@ -294,14 +294,6 @@ def build_lists_sheet(ws, wb, rows):
         wb.define_name(name, f"={sheet_range}")
         list_ranges[name] = sheet_range
 
-    # Top-N limiter values (col 10): numeric tiers + "Alle" string fallback
-    topn_col, topn_letter = 10, "K"
-    topn_values = [50, 200, 1000, "Alle"]
-    for i, v in enumerate(topn_values):
-        ws.write(i, topn_col, v)
-    topn_range = f"Lists!${topn_letter}$1:${topn_letter}${len(topn_values)}"
-    wb.define_name("lstTopN", f"={topn_range}")
-    list_ranges["lstTopN"] = topn_range
     return list_ranges
 
 
@@ -467,19 +459,9 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
         ws.write_dynamic_array_formula(15, start_col + 3, 15, start_col + 3,
                                         count_formula, fmts["pivot_count"])
 
-    # --- ERGEBNISSE header row with Top-N + filter indicator + hit counter ---
+    # --- ERGEBNISSE header row with filter indicator + hit counter ---
     ws.set_row(21, 24)
     ws.write(21, 0, "ERGEBNISSE", fmts["section"])
-
-    # Top-N dropdown at cols 2-3
-    ws.write(21, 2, "Anzeigen:", fmts["filter_label"])
-    ws.write(21, 3, "Alle", fmts["filter_input"])
-    wb.define_name("f_topn", "=Dashboard!$D$22")
-    ws.data_validation("D22", {
-        "validate": "list",
-        "source": f"={list_ranges['lstTopN']}",
-        "show_error": False,
-    })
 
     # Filter-active indicator at cols 5-7
     filter_active_formula = (
@@ -492,7 +474,7 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
 
     # Hit counter at cols 10-15 (right side)
     hit_counter_formula = (
-        '="Zeigt " & IF(COLUMNS(rngFilterFull)>1,TEXT(ROWS(rngFilterFull),"#\'##0"),0)'
+        '="Zeigt " & IF(COLUMNS(rngFilter)>1,TEXT(ROWS(rngFilter),"#\'##0"),0)'
         ' & " von " & TEXT(ROWS(tblData),"#\'##0") & " Einträgen"'
     )
     ws.merge_range(21, 10, 21, 15, "", fmts["hit_counter"])
@@ -504,24 +486,8 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
         ws.write(22, c, header, fmts["table_header"])
 
     # --- FILTER spill (row 23) ---
-    # Two named ranges:
-    #   rngFilterFull = unconstrained FILTER result (for KPIs, mini-pivots, counter)
-    #   rngFilter     = same but truncated to Top-N (for visible results table)
-    # Both spill from the same cell? No — only one spill anchor per cell. We
-    # split: rngFilterFull is computed by formulas above (KPIs etc.) via the
-    # rngFilter spill itself, BUT we apply Top-N truncation only to display.
-    # Simpler: keep rngFilter as the unconstrained spill (so KPIs/pivots use
-    # full filtered data), and display via a separate truncated spill range.
-    #
-    # We choose: rngFilterFull = A24# (unconstrained), used by KPIs/pivots.
-    # The visible table is a SECOND spill at row 30+ that applies Top-N.
-    # That keeps formulas simple and KPIs always reflect the full filter.
-    #
-    # But layout: putting the truncated spill at row 30 leaves a gap. Instead,
-    # we apply Top-N inside ONE spill at A24 and use that as both rngFilter
-    # and rngFilterFull — with Top-N "Alle", they're identical. Otherwise
-    # KPIs/pivots reflect the truncated view, which is acceptable because the
-    # hit counter shows "Zeigt 50 von 247 Einträgen" so the user knows.
+    # Single spill, anchored at A24. KPIs, mini-pivots and hit counter all
+    # reference rngFilter so they always reflect the full filtered result set.
     filter_conditions = (
         '(tblData[Reference]<>"")*'
         '((f_labels="")+ISNUMBER(SEARCH(f_labels,tblData[Labels])))*'
@@ -535,73 +501,12 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
         '((f_division="")+ISNUMBER(SEARCH(f_division,tblData[Business Division requested for])))*'
         '((f_activation="")+ISNUMBER(SEARCH(f_activation,tblData[Activation])))'
     )
-
-    # Full (unconstrained) filter — backed into a separate anchor for KPIs/pivots
-    # We place it on the hidden Lists sheet to keep Dashboard clean.
-    filter_full_formula = (
+    filter_formula = (
         f'=IFERROR(FILTER(tblData,{filter_conditions}),'
         f'"Keine Treffer — Filter zurücksetzen")'
     )
-    # Truncated filter (respects Top-N) for the visible results table
-    filter_truncated_formula = (
-        f'=LET(f,IFERROR(FILTER(tblData,{filter_conditions}),'
-        f'"Keine Treffer — Filter zurücksetzen"),'
-        f'IF(ISNUMBER(f_topn),IFERROR(TAKE(f,f_topn),f),f))'
-    )
-
-    ws.write_dynamic_array_formula(23, 0, 23, 0, filter_truncated_formula)
+    ws.write_dynamic_array_formula(23, 0, 23, 0, filter_formula)
     wb.define_name("rngFilter", "=Dashboard!$A$24#")
-
-    # rngFilterFull lives on Lists sheet (hidden) so KPIs/counter/pivots
-    # always see the unconstrained match count
-    list_sheet = wb.get_worksheet_by_name("Lists")
-    list_sheet.write_dynamic_array_formula(0, 15, 0, 15, filter_full_formula)
-    wb.define_name("rngFilterFull", "=Lists!$P$1#")
-
-    # Patch KPI formulas + pivots to use rngFilterFull instead of rngFilter
-    # (already written with rngFilter — but pivots and KPIs should reflect
-    # full filter, not the Top-N-truncated view). Rewrite them here.
-    kpi_formulas_full = [
-        '=IFERROR(IF(COLUMNS(rngFilterFull)>1,ROWS(rngFilterFull),0),0)',
-        '=IFERROR(SUMPRODUCT(--(INDEX(rngFilterFull,0,5)="Active")),0)',
-        '=IFERROR(SUMPRODUCT(--(INDEX(rngFilterFull,0,5)="Scheduled Activation")),0)',
-        '=IFERROR(SUMPRODUCT(--(INDEX(rngFilterFull,0,5)="Pending Change")),0)',
-        '=IFERROR(SUMPRODUCT(--(INDEX(rngFilterFull,0,5)="Deactivated")),0)',
-    ]
-    for i, formula in enumerate(kpi_formulas_full):
-        start_col = i * 3
-        ws.write_formula(4, start_col, formula, fmts["kpi_value"])
-
-    # Patch pivot formulas to use rngFilterFull
-    for title, start_col, src_idx, kind in panels:
-        if kind == "owners":
-            col_expr = (
-                'LET(c1,INDEX(rngFilterFull,0,13),c2,INDEX(rngFilterFull,0,14),'
-                'IFERROR(FILTER(VSTACK(c1,c2),VSTACK(c1,c2)<>""),""))'
-            )
-        else:
-            col_expr = (
-                f'LET(c,INDEX(rngFilterFull,0,{src_idx}),'
-                f'IFERROR(FILTER(c,c<>""),""))'
-            )
-        value_formula = (
-            f'=IFERROR(LET('
-            f'col,{col_expr},'
-            f'u,IFERROR(UNIQUE(col),""),'
-            f'c,IFERROR(BYROW(u,LAMBDA(v,SUMPRODUCT(--(col=v)))),0),'
-            f'CHOOSECOLS(TAKE(SORT(HSTACK(u,c),2,-1),5),1)),"")'
-        )
-        count_formula = (
-            f'=IFERROR(LET('
-            f'col,{col_expr},'
-            f'u,IFERROR(UNIQUE(col),""),'
-            f'c,IFERROR(BYROW(u,LAMBDA(v,SUMPRODUCT(--(col=v)))),0),'
-            f'CHOOSECOLS(TAKE(SORT(HSTACK(u,c),2,-1),5),2)),"")'
-        )
-        ws.write_dynamic_array_formula(15, start_col, 15, start_col,
-                                        value_formula, fmts["pivot_value"])
-        ws.write_dynamic_array_formula(15, start_col + 3, 15, start_col + 3,
-                                        count_formula, fmts["pivot_count"])
 
     ws.freeze_panes(22, 0)
 
