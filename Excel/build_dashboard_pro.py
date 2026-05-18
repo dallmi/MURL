@@ -37,7 +37,7 @@ LAKE = "#0C7EC6"
 
 DATA_HEADERS = [
     "Labels", "Reference", "MURL", "Service project", "Status",
-    "Requester", "Type", "Region(s)", "Line manager", "MURL Name",
+    "Requester", "Type", "Region(s)", "Line manager", "MURL name",
     "Activation", "Properties", "GOTO/MURL Owner 1", "GOTO/MURL Owner 2",
     "Business Division requested for", "Target Default",
 ]
@@ -45,9 +45,8 @@ COL_WIDTHS = [14, 14, 50, 14, 22, 22, 22, 14, 22, 24, 14, 24, 22, 22, 30, 60]
 LAST_COL = len(DATA_HEADERS) - 1  # 0-indexed
 LAST_COL_LETTER = chr(ord("A") + LAST_COL)
 
-# Columns required in the input CSV. "MURL Name" is NOT in the CSV — it gets
-# derived at read time from the MURL column (segment after the last "/").
-CSV_HEADERS = [h for h in DATA_HEADERS if h != "MURL Name"]
+# Columns required in the input CSV — must match DATA_HEADERS exactly.
+CSV_HEADERS = list(DATA_HEADERS)
 
 
 def main():
@@ -96,9 +95,8 @@ def main():
 def read_csv_rows(csv_path):
     """Read requests.csv and map each row to the 16 DATA_HEADERS.
 
-    The CSV must contain the 15 CSV_HEADERS columns. "MURL Name" is derived
-    from the MURL column (segment after the last "/", stripped of query string
-    and trailing slash) — this gives the short name used for filtering.
+    Expects header row with column names matching DATA_HEADERS exactly
+    (case-sensitive — note 'MURL name' is lowercase 'n').
     """
     with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -112,24 +110,8 @@ def read_csv_rows(csv_path):
             )
         rows = []
         for raw in reader:
-            row = {h: (raw.get(h) or "").strip() for h in CSV_HEADERS}
-            row["MURL Name"] = derive_murl_name(row["MURL"])
-            rows.append(row)
+            rows.append({h: (raw.get(h) or "").strip() for h in CSV_HEADERS})
     return rows
-
-
-def derive_murl_name(murl_url):
-    """Extract the short MURL name from the full URL.
-
-    Examples:
-        'www.corp.example/wealth-management/who-we-serve' -> 'who-we-serve'
-        'secure.corp.example/key4/'                       -> 'key4'
-        'promo.corp.example/foo?utm=x'                    -> 'foo'
-    """
-    if not murl_url:
-        return ""
-    s = murl_url.split("?", 1)[0].split("#", 1)[0].rstrip("/")
-    return s.rsplit("/", 1)[-1] if "/" in s else s
 
 
 def build_formats(wb):
@@ -535,7 +517,7 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
     filter_conditions = (
         '(tblData[Reference]<>"")*'
         '((f_labels="")+ISNUMBER(SEARCH(f_labels,tblData[Labels])))*'
-        '((f_murl="")+ISNUMBER(SEARCH(f_murl,tblData[MURL Name])))*'
+        '((f_murl="")+ISNUMBER(SEARCH(f_murl,tblData[MURL name])))*'
         '((f_target="")+ISNUMBER(SEARCH(f_target,tblData[Target Default])))*'
         '((f_owner="")+ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 1]))+'
         'ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 2])))*'
