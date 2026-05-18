@@ -421,19 +421,29 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
     # --- FILTER spill (row 23) ---
     # Single spill, anchored at A24. KPIs, mini-pivots and hit counter all
     # reference rngFilter so they always reflect the full filtered result set.
-    filter_conditions = (
-        '(tblData[Reference]<>"")*'
-        '((f_labels="")+ISNUMBER(SEARCH(f_labels,tblData[Labels])))*'
-        '((f_murl="")+ISNUMBER(SEARCH(f_murl,tblData[MURL name])))*'
-        '((f_target="")+ISNUMBER(SEARCH(f_target,tblData[Target URL])))*'
-        '((f_owner="")+ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 1]))+'
-        'ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 2])))*'
-        '((f_status="")+ISNUMBER(SEARCH(f_status,tblData[Status])))*'
-        '((f_requester="")+ISNUMBER(SEARCH(f_requester,tblData[Requester])))*'
-        '((f_region="")+ISNUMBER(SEARCH(f_region,tblData[Region(s)])))*'
-        '((f_division="")+ISNUMBER(SEARCH(f_division,tblData[Business Division requested for])))*'
-        '((f_activation="")+ISNUMBER(SEARCH(f_activation,tblData[Activation])))'
-    )
+    # Per-filter pattern: IF(filter is empty, 1, SEARCH-based contains-check).
+    # LEN(f&"") = 0 is robust against truly-empty cells (which Excel coerces
+    # to 0 when compared to ""). The "&\"\"" on the column coerces blank cells
+    # to "" so SEARCH doesn't error on them. IFERROR catches any per-row error.
+    def _f(filter_name, col_ref):
+        return (f'IF(LEN({filter_name}&"")=0,1,'
+                f'IFERROR(--ISNUMBER(SEARCH({filter_name},{col_ref}&"")),0))')
+
+    filter_conditions = "*".join([
+        '(tblData[Reference]<>"")',
+        _f("f_labels", "tblData[Labels]"),
+        _f("f_murl", "tblData[MURL name]"),
+        _f("f_target", "tblData[Target URL]"),
+        # Owners: either Owner 1 or Owner 2 must match
+        ('IF(LEN(f_owner&"")=0,1,'
+         'IFERROR(--ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 1]&"")),0)+'
+         'IFERROR(--ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 2]&"")),0))'),
+        _f("f_status", "tblData[Status]"),
+        _f("f_requester", "tblData[Requester]"),
+        _f("f_region", "tblData[Region(s)]"),
+        _f("f_division", "tblData[Business Division requested for]"),
+        _f("f_activation", "tblData[Activation]"),
+    ])
     filter_formula = (
         f'=IFERROR(FILTER(tblData,{filter_conditions}),'
         f'"Keine Treffer — Filter zurücksetzen")'
