@@ -430,6 +430,10 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
                 f'IFERROR(ISNUMBER(SEARCH({filter_name},{col_ref}&"")),FALSE))')
 
     filter_conditions = "*".join([
+        # First condition is always an array of TRUE/FALSE so the product
+        # never collapses to a scalar — FILTER expects an array of the same
+        # shape as the rows being filtered.
+        '(tblData[Reference]<>"")',
         _f("f_labels", "tblData[Labels]"),
         _f("f_murl", "tblData[MURL name]"),
         _f("f_target", "tblData[Target URL]"),
