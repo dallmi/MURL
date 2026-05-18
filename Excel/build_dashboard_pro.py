@@ -45,8 +45,13 @@ COL_WIDTHS = [14, 14, 50, 14, 22, 22, 22, 14, 22, 24, 14, 24, 22, 22, 30, 60]
 LAST_COL = len(DATA_HEADERS) - 1  # 0-indexed
 LAST_COL_LETTER = chr(ord("A") + LAST_COL)
 
-# Columns required in the input CSV — must match DATA_HEADERS exactly.
-CSV_HEADERS = list(DATA_HEADERS)
+# Maps the dashboard column name → original Tableau CSV column name.
+# Anything not in this map uses the same name in CSV and dashboard.
+CSV_RENAME = {
+    "MURL": "Summary",
+    "Target URL": "Target Default",
+}
+CSV_HEADERS = [CSV_RENAME.get(h, h) for h in DATA_HEADERS]
 
 
 def main():
@@ -110,7 +115,10 @@ def read_csv_rows(csv_path):
             )
         rows = []
         for raw in reader:
-            rows.append({h: (raw.get(h) or "").strip() for h in CSV_HEADERS})
+            rows.append({
+                h: (raw.get(CSV_RENAME.get(h, h)) or "").strip()
+                for h in DATA_HEADERS
+            })
     return rows
 
 
