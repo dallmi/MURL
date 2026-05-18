@@ -421,23 +421,22 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
     # --- FILTER spill (row 23) ---
     # Single spill, anchored at A24. KPIs, mini-pivots and hit counter all
     # reference rngFilter so they always reflect the full filtered result set.
-    # Per-filter pattern: IF(filter is empty, 1, SEARCH-based contains-check).
-    # LEN(f&"") = 0 is robust against truly-empty cells (which Excel coerces
-    # to 0 when compared to ""). The "&\"\"" on the column coerces blank cells
-    # to "" so SEARCH doesn't error on them. IFERROR catches any per-row error.
+    # Per-filter pattern: empty filter returns TRUE (matches all), non-empty
+    # filter does a contains-check on the column (coerced to text via &"").
+    # IFERROR catches per-row SEARCH errors. This avoids any dependency on
+    # SEARCH("","") behavior, which varies across Excel builds.
     def _f(filter_name, col_ref):
-        return (f'IF(LEN({filter_name}&"")=0,1,'
-                f'IFERROR(--ISNUMBER(SEARCH({filter_name},{col_ref}&"")),0))')
+        return (f'IF({filter_name}="",TRUE,'
+                f'IFERROR(ISNUMBER(SEARCH({filter_name},{col_ref}&"")),FALSE))')
 
     filter_conditions = "*".join([
-        '(tblData[Reference]<>"")',
         _f("f_labels", "tblData[Labels]"),
         _f("f_murl", "tblData[MURL name]"),
         _f("f_target", "tblData[Target URL]"),
         # Owners: either Owner 1 or Owner 2 must match
-        ('IF(LEN(f_owner&"")=0,1,'
-         'IFERROR(--ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 1]&"")),0)+'
-         'IFERROR(--ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 2]&"")),0))'),
+        ('IF(f_owner="",TRUE,'
+         'IFERROR(ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 1]&"")),FALSE)+'
+         'IFERROR(ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 2]&"")),FALSE))'),
         _f("f_status", "tblData[Status]"),
         _f("f_requester", "tblData[Requester]"),
         _f("f_region", "tblData[Region(s)]"),
