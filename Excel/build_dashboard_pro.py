@@ -388,77 +388,9 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
             "show_error": False,
         })
 
-    # --- AGGREGATION mini-pivots (4 panels × 4 cols each) ---
-    # Each panel: title (merged 4 cols), sub-header row, spill formula
-    # returning TOP 5 (value, count) sorted desc into 2 cols.
-    ws.set_row(12, 22)
-    ws.write(12, 0, "AGGREGATION — Top 5 im aktuellen Filter", fmts["section"])
-
-    ws.set_row(13, 24)
-    ws.set_row(14, 20)
-    for r in range(15, 20):
-        ws.set_row(r, 20)
-
-    panels = [
-        # (title, panel_start_col, source_col_in_rngFilter_1idx, formula_kind)
-        ("Status",            0,  5,  "single"),
-        ("Business Division", 4,  15, "single"),
-        ("Region",            8,  8,  "single"),
-        ("Top Owners",        12, 13, "owners"),  # combines Owner 1 + Owner 2
-    ]
-    for title, start_col, src_idx, kind in panels:
-        ws.merge_range(13, start_col, 13, start_col + 3, title, fmts["pivot_title"])
-        ws.merge_range(14, start_col, 14, start_col + 2, "Wert", fmts["pivot_subheader"])
-        ws.write(14, start_col + 3, "Anzahl", fmts["pivot_subheader_num"])
-
-        if kind == "owners":
-            # Stack Owner 1 + Owner 2 columns, filter blanks, count uniques
-            col_expr = (
-                'LET(c1,INDEX(rngFilter,0,13),c2,INDEX(rngFilter,0,14),'
-                'IFERROR(FILTER(VSTACK(c1,c2),VSTACK(c1,c2)<>""),""))'
-            )
-        else:
-            col_expr = (
-                f'LET(c,INDEX(rngFilter,0,{src_idx}),'
-                f'IFERROR(FILTER(c,c<>""),""))'
-            )
-
-        # TOP 5: unique values, counts, sorted desc, take 5
-        # IFERROR wraps every stage — rngFilter may be the "Keine Treffer" text
-        pivot_formula = (
-            f'=IFERROR(LET('
-            f'col,{col_expr},'
-            f'u,IFERROR(UNIQUE(col),""),'
-            f'c,IFERROR(BYROW(u,LAMBDA(v,SUMPRODUCT(--(col=v)))),0),'
-            f'TAKE(SORT(HSTACK(u,c),2,-1),5)),"")'
-        )
-
-        # Pre-format the 5 value/count cells so they look right even when spill is empty
-        for r in range(15, 20):
-            ws.merge_range(r, start_col, r, start_col + 2, "", fmts["pivot_value"])
-            ws.write_blank(r, start_col + 3, None, fmts["pivot_count"])
-
-        # Spill into 2 cols (value + count) starting at panel_start_col, row 15.
-        # The value spills into start_col (the leftmost merged cell of the
-        # value block), count into start_col+3 — we use CHOOSECOLS to split.
-        value_formula = (
-            f'=IFERROR(LET('
-            f'col,{col_expr},'
-            f'u,IFERROR(UNIQUE(col),""),'
-            f'c,IFERROR(BYROW(u,LAMBDA(v,SUMPRODUCT(--(col=v)))),0),'
-            f'CHOOSECOLS(TAKE(SORT(HSTACK(u,c),2,-1),5),1)),"")'
-        )
-        count_formula = (
-            f'=IFERROR(LET('
-            f'col,{col_expr},'
-            f'u,IFERROR(UNIQUE(col),""),'
-            f'c,IFERROR(BYROW(u,LAMBDA(v,SUMPRODUCT(--(col=v)))),0),'
-            f'CHOOSECOLS(TAKE(SORT(HSTACK(u,c),2,-1),5),2)),"")'
-        )
-        ws.write_dynamic_array_formula(15, start_col, 15, start_col,
-                                        value_formula, fmts["pivot_value"])
-        ws.write_dynamic_array_formula(15, start_col + 3, 15, start_col + 3,
-                                        count_formula, fmts["pivot_count"])
+    # AGGREGATION mini-pivots removed — they used LAMBDA/BYROW/CHOOSECOLS/TAKE
+    # which some Excel for Windows builds in corp environments (Semi-Annual
+    # Channel) reject, stripping the formulas on file open.
 
     # --- ERGEBNISSE header row with filter indicator + hit counter ---
     ws.set_row(21, 24)
