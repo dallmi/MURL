@@ -39,7 +39,7 @@ DATA_HEADERS = [
     "Labels", "Reference", "MURL", "Service project", "Status",
     "Requester", "Type", "Region(s)", "Line manager", "MURL name",
     "Activation", "Properties", "GOTO/MURL Owner 1", "GOTO/MURL Owner 2",
-    "Business Division requested for", "Target Default",
+    "Business Division requested for", "Target URL",
 ]
 COL_WIDTHS = [14, 14, 50, 14, 22, 22, 22, 14, 22, 24, 14, 24, 22, 22, 30, 60]
 LAST_COL = len(DATA_HEADERS) - 1  # 0-indexed
@@ -518,7 +518,7 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
         '(tblData[Reference]<>"")*'
         '((f_labels="")+ISNUMBER(SEARCH(f_labels,tblData[Labels])))*'
         '((f_murl="")+ISNUMBER(SEARCH(f_murl,tblData[MURL name])))*'
-        '((f_target="")+ISNUMBER(SEARCH(f_target,tblData[Target Default])))*'
+        '((f_target="")+ISNUMBER(SEARCH(f_target,tblData[Target URL])))*'
         '((f_owner="")+ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 1]))+'
         'ISNUMBER(SEARCH(f_owner,tblData[GOTO/MURL Owner 2])))*'
         '((f_status="")+ISNUMBER(SEARCH(f_status,tblData[Status])))*'
