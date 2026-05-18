@@ -331,7 +331,8 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
     ws.set_row(3, 22)
     ws.set_row(4, 44)
     kpis = [
-        ("Total", "=IFERROR(IF(COLUMNS(rngFilter)>1,ROWS(rngFilter),0),0)", RED),
+        ("Total",
+         '=IFERROR(SUMPRODUCT(--(INDEX(rngFilter,0,2)<>"")),0)', RED),
         ("Active",
          '=IFERROR(SUMPRODUCT(--(INDEX(rngFilter,0,5)="Active")),0)', RAG_GREEN),
         ("Scheduled",
@@ -474,7 +475,7 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
 
     # Hit counter at cols 10-15 (right side)
     hit_counter_formula = (
-        '="Zeigt " & IF(COLUMNS(rngFilter)>1,TEXT(ROWS(rngFilter),"#\'##0"),0)'
+        '="Zeigt " & TEXT(SUMPRODUCT(--(INDEX(rngFilter,0,2)<>"")),"#\'##0")'
         ' & " von " & TEXT(ROWS(tblData),"#\'##0") & " Einträgen"'
     )
     ws.merge_range(21, 10, 21, 15, "", fmts["hit_counter"])
@@ -506,7 +507,10 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
         f'"Keine Treffer — Filter zurücksetzen")'
     )
     ws.write_dynamic_array_formula(23, 0, 23, 0, filter_formula)
-    wb.define_name("rngFilter", "=Dashboard!$A$24#")
+    # Use a static range instead of a spill anchor (#) — some Excel for
+    # Windows 365 builds strip named ranges that use the spill operator on
+    # file open, breaking the workbook. 30000 covers up to ~30k filtered rows.
+    wb.define_name("rngFilter", "=Dashboard!$A$24:$P$30000")
 
     ws.freeze_panes(22, 0)
 
