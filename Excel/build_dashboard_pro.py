@@ -36,7 +36,7 @@ RAG_AMBER = "#E4A911"
 LAKE = "#0C7EC6"
 
 DATA_HEADERS = [
-    "Labels", "Reference", "Summary", "Service project", "Status",
+    "Labels", "Reference", "MURL", "Service project", "Status",
     "Requester", "Type", "Region(s)", "Line manager", "MURL Name",
     "Activation", "Properties", "GOTO/MURL Owner 1", "GOTO/MURL Owner 2",
     "Business Division requested for", "Target Default",
@@ -44,6 +44,10 @@ DATA_HEADERS = [
 COL_WIDTHS = [14, 14, 50, 14, 22, 22, 22, 14, 22, 24, 14, 24, 22, 22, 30, 60]
 LAST_COL = len(DATA_HEADERS) - 1  # 0-indexed
 LAST_COL_LETTER = chr(ord("A") + LAST_COL)
+
+# Columns required in the input CSV. "MURL Name" is NOT in the CSV — it gets
+# derived at read time from the MURL column (segment after the last "/").
+CSV_HEADERS = [h for h in DATA_HEADERS if h != "MURL Name"]
 
 
 def main():
@@ -92,23 +96,40 @@ def main():
 def read_csv_rows(csv_path):
     """Read requests.csv and map each row to the 16 DATA_HEADERS.
 
-    Expects header row with column names matching DATA_HEADERS exactly.
-    Empty cells preserved as empty strings.
+    The CSV must contain the 15 CSV_HEADERS columns. "MURL Name" is derived
+    from the MURL column (segment after the last "/", stripped of query string
+    and trailing slash) — this gives the short name used for filtering.
     """
     with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames or []
-        missing = [h for h in DATA_HEADERS if h not in fieldnames]
+        missing = [h for h in CSV_HEADERS if h not in fieldnames]
         if missing:
             raise SystemExit(
                 f"CSV header is missing required columns: {missing}\n"
                 f"CSV has: {fieldnames}\n"
-                f"Expected (16): {DATA_HEADERS}"
+                f"Expected ({len(CSV_HEADERS)}): {CSV_HEADERS}"
             )
         rows = []
-        for row in reader:
-            rows.append({h: (row.get(h) or "").strip() for h in DATA_HEADERS})
+        for raw in reader:
+            row = {h: (raw.get(h) or "").strip() for h in CSV_HEADERS}
+            row["MURL Name"] = derive_murl_name(row["MURL"])
+            rows.append(row)
     return rows
+
+
+def derive_murl_name(murl_url):
+    """Extract the short MURL name from the full URL.
+
+    Examples:
+        'www.corp.example/wealth-management/who-we-serve' -> 'who-we-serve'
+        'secure.corp.example/key4/'                       -> 'key4'
+        'promo.corp.example/foo?utm=x'                    -> 'foo'
+    """
+    if not murl_url:
+        return ""
+    s = murl_url.split("?", 1)[0].split("#", 1)[0].rstrip("/")
+    return s.rsplit("/", 1)[-1] if "/" in s else s
 
 
 def build_formats(wb):
