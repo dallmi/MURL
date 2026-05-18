@@ -222,11 +222,11 @@ def generate_seed_rows(count):
     ]
     murl_codes = [
         "newera", "dxsj5", "swissbanking", "dailybanking", "klahr", "young-account",
-        "freiburg", "ubsrisk-in", "wallis", "romandie", "valais", "geneve",
+        "freiburg", "risk-insights", "wallis", "romandie", "valais", "geneve",
         "brdyj", "cvkkw", "ggrop", "lwol7", "fipd", "vbd", "lpd", "fxd",
         "cwz-immobilien", "swiss-hotels", "m3pzs", "fei-dressur", "fei-springen",
         "talents-program", "academic-family", "youth-students", "pension-vested",
-        "card-debit", "card-credit", "online-banking", "key4", "advisor-locator",
+        "card-debit", "card-credit", "online-banking", "mobile-banking", "advisor-locator",
         "esg-investing", "crypto-hub", "wealth-planning", "retirement-pillar3",
     ]
     url_segments = [
