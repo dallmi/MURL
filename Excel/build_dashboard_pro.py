@@ -475,8 +475,8 @@ def build_dashboard_sheet(ws, wb, fmts, list_ranges):
 
     # Hit counter at cols 10-15 (right side)
     hit_counter_formula = (
-        '="Zeigt " & TEXT(SUMPRODUCT(--(INDEX(rngFilter,0,2)<>"")),"#\'##0")'
-        ' & " von " & TEXT(ROWS(tblData),"#\'##0") & " Einträgen"'
+        '="Zeigt " & TEXT(SUMPRODUCT(--(INDEX(rngFilter,0,2)<>"")),"#,##0")'
+        ' & " von " & TEXT(ROWS(tblData),"#,##0") & " Einträgen"'
     )
     ws.merge_range(21, 10, 21, 15, "", fmts["hit_counter"])
     ws.write_formula(21, 10, hit_counter_formula, fmts["hit_counter"])
