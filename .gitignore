@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.DS_Store
+Excel/input/*.csv
+test-results/
